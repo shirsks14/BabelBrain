@@ -361,7 +361,7 @@ def CalculateTemperatureEffects(InputPData,
     SaveDict['DistanceFromSkin']=Input['DistanceFromSkin']
     SaveDict['TxMechanicalAdjustmentZ']=Input['TxMechanicalAdjustmentZ']
     SaveDict['TargetLocation']=Input['TargetLocation']
-    
+    SaveDict['ZIntoSkinPixels']=Input['ZIntoSkinPixels']
     if bCalculateLosses:
         SaveDict['RatioLosses']=RatioLosses
     

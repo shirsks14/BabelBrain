@@ -147,7 +147,6 @@ class OutputWrapper(QObject):
 GetSmallestSOS=None
 
 _LastSelConfig=str(Path.home())+os.sep+os.path.join('.config','BabelBrain','lastselection.yaml')
-_BrainsightSyncPath=str(Path.home())+os.sep+'.BabelBrainSync'
 
 def GetLatestSelection():
     res=None
@@ -171,9 +170,9 @@ def GetLatestSelection():
 
 def GetInputFromBrainsight():
     res=None
-    PathMat4Trajectory  = _BrainsightSyncPath + os.sep +'Input_Target.txt'
-    PathT1W             = _BrainsightSyncPath + os.sep +'Input_Anatomical.txt'
-    Pathsimbnibs_path   = _BrainsightSyncPath + os.sep +'Input_SegmentationsPath.txt'
+    PathMat4Trajectory  = BabelBrain._BrainsightSyncPath + os.sep +'Input_Target.txt'
+    PathT1W             = BabelBrain._BrainsightSyncPath + os.sep +'Input_Anatomical.txt'
+    Pathsimbnibs_path   = BabelBrain._BrainsightSyncPath + os.sep +'Input_SegmentationsPath.txt'
 
 
     if os.path.isfile(PathMat4Trajectory) and \
@@ -209,6 +208,9 @@ class BabelBrain(QWidget):
     Main LIFU Control application
 
     '''
+
+    _BrainsightSyncPath: str = str(Path.home()) + os.sep + '.BabelBrainSync'
+
     def __init__(self,widget,bInUseWithBrainsight=False):
         super(BabelBrain, self).__init__()
         #This file will store the last config selected
@@ -268,6 +270,13 @@ class BabelBrain(QWidget):
         self.InitApplication()
         self.static_canvas=None
 
+        # Set default figure text color, works for both light and dark mode
+        FIGTEXTCOLOR = np.array(self.palette().color(QPalette.WindowText).getRgb())/255.0
+        plt.rcParams['text.color'] = FIGTEXTCOLOR
+        plt.rcParams['axes.labelcolor'] = FIGTEXTCOLOR
+        plt.rcParams['xtick.color'] = FIGTEXTCOLOR
+        plt.rcParams['ytick.color'] = FIGTEXTCOLOR
+
     def SaveLatestSelection(self):
         if not os.path.isfile(_LastSelConfig):
             try:
@@ -306,6 +315,8 @@ class BabelBrain(QWidget):
             from Babel_H317.Babel_H317 import H317 as WidgetAcSim
         elif self.Config['TxSystem'] =='H246':
             from Babel_H246.Babel_H246 import H246 as WidgetAcSim
+        elif self.Config['TxSystem'] =='BSonix':
+            from Babel_SingleTx.Babel_BSonix import BSonix as WidgetAcSim
         else:
             self.EndWithError("TX system " + self.Config['TxSystem'] + " is not yet supported")
 
@@ -352,7 +363,7 @@ class BabelBrain(QWidget):
     
     @Slot()
     def handleOutput(self, text, stdout):
-        color = self.Widget.outputTerminal.textColor()
+        color = self.palette().color(QPalette.WindowText)
         self.Widget.outputTerminal.moveCursor(QTextCursor.End)
         self.Widget.outputTerminal.setTextColor(color if stdout else self._err_color)
         self.Widget.outputTerminal.insertPlainText(text)

@@ -1,4 +1,4 @@
-BabelBrain v0.2.5-1
+BabelBrain v0.2.9
 =============
 Samuel Pichardo, Ph.D  
 Associate Professor  
@@ -20,8 +20,9 @@ BabelBrain is a frontend application specially designed to work in tandem with n
 This software is provided "as is" and it is intended exclusively for research purposes.
 
 # Standalone application
-Ready-to-use applications (no need for Python installation) for macOS are available in the [Releases](https://github.com/ProteusMRIgHIFU/BabelBrain/releases) section. Download, open and drag "BabelBrain" into the Applications folder. The first time you use you will be prompted to authorize to run and access directories. You may also need to authorize it in the Security settings of macOS.
+Ready-to-use applications (no need for Python installation) for macOS and Windows are available in the [Releases](https://github.com/ProteusMRIgHIFU/BabelBrain/releases) section. Download, open and drag "BabelBrain" into the Applications folder. The first time you use you will be prompted to authorize to run and access directories. You may also need to authorize it in the Security settings of macOS.
 
+**Note for Windows:** CUDA 11.7 or up must be installed.
 # Instructions for use
 Please consult the [online manual](https://proteusmrighifu.github.io/BabelBrain/) for details on instructions for use.
 
@@ -51,17 +52,32 @@ If running from the GitHub source code, just change to the BabelBrain directory 
 
 `python BabelBrain.py`
 
-## Building an standalone application for macOS
-A Pyinstaller specification file is ready for use. To build the MacOS application, just change to the BabelBrain directory and run
+## Building an standalone application
+A Pyinstaller specification file is ready for use. To build either the macOS or Windows application, just change to the BabelBrain directory and run
 
-`pyinstaller BabelBrain.spec`
+`pyinstaller BabelBrain.spec --noconfirm`
 
-A new application ready to use will be created at `BabelBrain/BabelBrain/dist/Babelbrain.app`
+A new application ready to use will be created at `BabelBrain/BabelBrain/dist/`
+
 
 # Version log
-- 2.5.0-1. March 15, 2023:
+- 0.2.9 - Aug 1, 2023
+  - Add scrolling of imaging planes of acoustic fields in Step 2
+  - Add the possibility in Step 2 of adjusting the positioning of the transducer to recreate the transducer pressed on the scalp. Use with caution. The processing will remove tissue layers. Limited to 10 mm.
+  - Add multiple behind-the-scenes new GPU code to accelerate calculations for Step 1. Because now operations are float32, some very minor differences can be expected for the produced mask for simulations with previous versions.
+- 0.2.7 - May 3, 2023
+  - New devices as detailed in [Schafer *et al.*](https://doi.org/10.1109/TUFFC.2020.3006781) 
+  - Option to show water-only modeling results added in Step 2
+  - Adjustment of Z mechanical for CTX 500 device added for scenarios where a pad is added
+  - New Nifti output (with extension `_Sub_NORM.nii.gz`) containing normalized pressure output (0 to 1.0) in the brain region. All other tissue regions are set to 0. This simplifies visualization and thresholding in tools such as fsleyes.
+- 0.2.6 - Apr 8, 2023:
+  - Windows standalone available 
+  - BUG fix: Issue #14 - Reduced precision with single Elem Tx with high F#
+  - BUG fix: Issue #13 - Inadequate use of SimpleITK SetSpacing to create isotropic scans 
+  - Minor bugs for minimal requirements
+- 0.2.5-1. March 15, 2023:
   - BUG fix: Issue #7 - Matplotlib backends are now included in macOS application 
   - BUG fix: Remove CPU from engine
-- 2.5.0 -  Jan 10, 2023:
+- 0.2.5 -  Jan 10, 2023:
   - First public release
 

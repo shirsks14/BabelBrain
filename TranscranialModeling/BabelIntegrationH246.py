@@ -53,7 +53,7 @@ def GenerateSurface(lstep,Diam,Foc,IntDiam=0):
     ds = np.zeros((0,1))
 
     VertDisplay=  np.zeros((0,3))
-    FaceDisplay= np.zeros((0,4),np.int)
+    FaceDisplay= np.zeros((0,4),np.int64)
 
     for nr in range(len(BetaC)):
 
@@ -70,7 +70,7 @@ def GenerateSurface(lstep,Diam,Foc,IntDiam=0):
         ds = np.vstack((ds,np.zeros((len(AlphaC),1))))
 
         VertDisplay= np.vstack((VertDisplay,np.zeros((len(AlphaC)*4,3))))
-        FaceDisplay= np.vstack((FaceDisplay,np.zeros((len(AlphaC),4),np.int)))
+        FaceDisplay= np.vstack((FaceDisplay,np.zeros((len(AlphaC),4),np.int64)))
 
 
         zc = -np.cos(BetaC[nr])*Foc
@@ -407,7 +407,7 @@ class SimulationConditions(SimulationConditionsBASE):
         ramp_length_points=len(ramp)
         
         self._SourceMap=np.zeros((self._N1,self._N2,self._N3),np.uint32)
-        LocZ=self._PMLThickness
+        LocZ=self._ZSourceLocation
         
         SourceMaskIND=np.where(np.abs(self._SourceMapFlat)>0)
         SourceMask=np.zeros((self._N1,self._N2),np.uint32)

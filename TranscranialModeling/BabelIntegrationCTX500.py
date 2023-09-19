@@ -52,7 +52,7 @@ def GenerateSurface(lstep,Diam,Foc,IntDiam=0):
     ds = np.zeros((0,1))
 
     VertDisplay=  np.zeros((0,3))
-    FaceDisplay= np.zeros((0,4),np.int)
+    FaceDisplay= np.zeros((0,4),np.int64)
 
     for nr in range(len(BetaC)):
 
@@ -69,7 +69,7 @@ def GenerateSurface(lstep,Diam,Foc,IntDiam=0):
         ds = np.vstack((ds,np.zeros((len(AlphaC),1))))
 
         VertDisplay= np.vstack((VertDisplay,np.zeros((len(AlphaC)*4,3))))
-        FaceDisplay= np.vstack((FaceDisplay,np.zeros((len(AlphaC),4),np.int)))
+        FaceDisplay= np.vstack((FaceDisplay,np.zeros((len(AlphaC),4),np.int64)))
 
 
         zc = -np.cos(BetaC[nr])*Foc
@@ -380,16 +380,11 @@ class SimulationConditions(SimulationConditionsBASE):
         
         self._u2RayleighField=u2
         
-        TopZ=self._ZDim[self._PMLThickness]
-        DistanceToFocus=self._FocalLength-TopZ
-        Alpha=np.arcsin(self._Aperture/2/self._FocalLength)
-        RadiusFace=DistanceToFocus*np.tan(Alpha)*1.05 # we make a bit larger to be sure of covering all incident beam
-        
         self._SourceMapRayleigh=u2[:,:,self._PMLThickness].copy()
-        ypp,xpp=np.meshgrid(self._YDim,self._XDim)
-        
-        RegionMap=xpp**2+ypp**2<=RadiusFace**2 #we select the circle on the incident field
-        self._SourceMapRayleigh[RegionMap==False]=0+1j*0
+        self._SourceMapRayleigh[:self._PMLThickness,:]=0
+        self._SourceMapRayleigh[-self._PMLThickness:,:]=0
+        self._SourceMapRayleigh[:,:self._PMLThickness]=0
+        self._SourceMapRayleigh[:,-self._PMLThickness:]=0
         
         if self._bDisplay:
             plt.figure(figsize=(6,3))
@@ -423,7 +418,7 @@ class SimulationConditions(SimulationConditionsBASE):
         ramp_length_points=len(ramp)
         
         self._SourceMap=np.zeros((self._N1,self._N2,self._N3),np.uint32)
-        LocZ=self._PMLThickness
+        LocZ=self._ZSourceLocation
         
         SourceMaskIND=np.where(np.abs(self._SourceMapRayleigh)>0)
         SourceMask=np.zeros((self._N1,self._N2),np.uint32)

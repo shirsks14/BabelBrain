@@ -187,6 +187,11 @@ class Babel_Thermal(QWidget):
                 self._ThermalResults.append(ReadFromH5py(ThermalName))
                 if self._MainApp.Config['bUseCT']:
                     self._ThermalResults[-1]['MaterialMap'][self._ThermalResults[-1]['MaterialMap']>=3]=3
+            DataThermal=self._ThermalResults[self.Widget.SelCombinationDropDown.currentIndex()]
+            self._xf=DataThermal['x_vec']
+            self._zf=DataThermal['z_vec']
+            SkinZ=np.array(np.where(DataThermal['MaterialMap']==1)).T.min(axis=0)[1]
+            self._zf-=self._zf[SkinZ]
         
         DataThermal=self._ThermalResults[self.Widget.SelCombinationDropDown.currentIndex()]
 
@@ -204,14 +209,13 @@ class Babel_Thermal(QWidget):
         else:
             SelIsppa=OverWriteIsppa
 
-        xf=DataThermal['x_vec']
-        zf=DataThermal['z_vec']
+        xf=self._xf
+        zf=self._zf
 
        
         SelY=self.Widget.IsppaScrollBar.value()
 
-        SkinZ=np.array(np.where(DataThermal['MaterialMap'][:,SelY,:]==1)).T.min(axis=0)[1]
-        zf-=zf[SkinZ]
+ 
 
         IsppaRatio=SelIsppa/self.Config['BaseIsppa']
 
@@ -259,7 +263,10 @@ class Babel_Thermal(QWidget):
             DensityMap=DataThermal['MaterialList']['Density'][DataThermal['MaterialMap'][:,SelY,:]]
             SoSMap=    DataThermal['MaterialList']['SoS'][DataThermal['MaterialMap'][:,SelY,:]]
             IntensityMap=(DataThermal['p_map'][:,SelY,:]**2/2/DensityMap/SoSMap/1e4*IsppaRatio).T
-            IntensityMap[0,:]=0
+            if 'ZIntoSkinPixels' in DataThermal:
+                IntensityMap[DataThermal['ZIntoSkinPixels'],:]=0
+            else:
+                IntensityMap[0,:]=0
             Tmap=(DataThermal['TempEndFUS'][:,SelY,:]-37.0)*IsppaRatio+37.0
 
             if self._MainApp.Config['bUseCT']:
@@ -437,7 +444,7 @@ class RunThermalSim(QObject):
         kargs['Isppa']=self._mainApp.ThermalSim.Config['BaseIsppa']
 
         kargs['TxSystem']=self._mainApp.Config['TxSystem']
-        if kargs['TxSystem'] in ['CTX_500','Single','H246']:
+        if kargs['TxSystem'] in ['CTX_500','Single','H246','BSonix']:
             kargs['sel_p']='p_amp'
         else:
             bRefocus = self._mainApp.AcSim.Widget.RefocusingcheckBox.isChecked()

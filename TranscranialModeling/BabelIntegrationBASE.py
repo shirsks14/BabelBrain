@@ -303,6 +303,28 @@ def SaveNiftiEnforcedISO(nii,fn):
         assert(os.system(cmd)==0)
         os.remove(fn)
 
+def ResaveNormalized(RPath,Mask):
+    assert('_Sub.nii.gz' in RPath)
+    NRPath=RPath.replace('_Sub.nii.gz','_Sub_NORM.nii.gz')
+
+    Results=nibabel.load(RPath)
+
+    ResultsData=Results.get_fdata()
+    MaskData=Mask.get_fdata()
+    ii,jj,kk=np.mgrid[0:ResultsData.shape[0],0:ResultsData.shape[1],0:ResultsData.shape[2]]
+
+    Indexes=np.c_[(ii.flatten().T,jj.flatten().T,kk.flatten().T,np.ones((kk.size,1)))].T
+
+    PosResults=Results.affine.dot(Indexes)
+
+    IndexesMask=np.round(np.linalg.inv(Mask.affine).dot(PosResults)).astype(int)
+
+    SubMask=MaskData[IndexesMask[0,:],IndexesMask[1,:],IndexesMask[2,:]].reshape(ResultsData.shape)
+    ResultsData[SubMask<4]=0
+    ResultsData/=ResultsData.max()
+    NormalizedNifti=nibabel.Nifti1Image(ResultsData,Results.affine,header=Results.header)
+    NormalizedNifti.to_filename(NRPath)
+
 class RUN_SIM_BASE(object):
     def CreateSimObject(self,**kargs):
         #this passes extra parameters needed for a given Tx
@@ -447,12 +469,12 @@ class BabelFTD_Simulations_BASE(object):
                  bNoShear=False,
                  pressure=50e3,
                  SensorSubSampling=8,
-                 PadForRayleigh=12,
                  bTightNarrowBeamDomain=False, #if this set, simulations will be done only accross a section area that follows the acoustic beam, this is useful to reduce computational costs
                  zLengthBeyonFocalPointWhenNarrow=4e-2,
-                 TxMechanicalAdjustmentX=0,
-                 TxMechanicalAdjustmentY=0,
-                 TxMechanicalAdjustmentZ=0,
+                 TxMechanicalAdjustmentX=0.0, #Positioning of Tx
+                 TxMechanicalAdjustmentY=0.0,
+                 TxMechanicalAdjustmentZ=0.0,
+                 ZIntoSkin=0.0, # For simulations mimicking compressing skin (in simulation we will remove tissue layers)
                  bDoRefocusing=True,
                  bWaterOnly=False,
                  QCorrection=3,
@@ -472,13 +494,13 @@ class BabelFTD_Simulations_BASE(object):
         
         self._Frequency=Frequency
         self._pressure=pressure
-        self._PadForRayleigh=PadForRayleigh
         self._bWaterOnly=bWaterOnly
         self._bTightNarrowBeamDomain=bTightNarrowBeamDomain
         self._zLengthBeyonFocalPointWhenNarrow=zLengthBeyonFocalPointWhenNarrow
         self._TxMechanicalAdjustmentX=TxMechanicalAdjustmentX
         self._TxMechanicalAdjustmentY=TxMechanicalAdjustmentY
         self._TxMechanicalAdjustmentZ=TxMechanicalAdjustmentZ
+        self._ZIntoSkin=ZIntoSkin
         self._bDoRefocusing=bDoRefocusing
         self._SensorSubSampling=SensorSubSampling
         self._CTFNAME=CTFNAME
@@ -576,6 +598,7 @@ class BabelFTD_Simulations_BASE(object):
                                 TxMechanicalAdjustmentX=self._TxMechanicalAdjustmentX,
                                 TxMechanicalAdjustmentY=self._TxMechanicalAdjustmentY,
                                 TxMechanicalAdjustmentZ=self._TxMechanicalAdjustmentZ,
+                                ZIntoSkin=self._ZIntoSkin,
                                 DensityCTMap=DensityCTMap,
                                 QCorrection=QCorrArr,
                                 DispersionCorrection=[-2307.53581298, 6875.73903172, -7824.73175146, 4227.49417250, -975.22622721])
@@ -704,12 +727,15 @@ class BabelFTD_Simulations_BASE(object):
             SaveNiftiEnforcedISO(nii,bdir+os.sep+prefix+waterPrefix+'FullElasticSolutionRefocus__.nii.gz')
             nii=nibabel.Nifti1Image(FullSolutionPressureRefocus[mx[0]:mx[-1],my[0]:my[-1],mz[0]:mz[-1]],affine=affineSub)
             SaveNiftiEnforcedISO(nii,bdir+os.sep+prefix+waterPrefix+'FullElasticSolutionRefocus_Sub__.nii.gz')
+            ResaveNormalized(bdir+os.sep+prefix+waterPrefix+'FullElasticSolutionRefocus_Sub.nii.gz',self._SkullMask)
+
                 
         nii=nibabel.Nifti1Image(FullSolutionPressure[::ss,::ss,::ss],affine=affine)
         SaveNiftiEnforcedISO(nii,bdir+os.sep+prefix+waterPrefix+'FullElasticSolution__.nii.gz')
 
         nii=nibabel.Nifti1Image(FullSolutionPressure[mx[0]:mx[-1],my[0]:my[-1],mz[0]:mz[-1]],affine=affineSub)
         SaveNiftiEnforcedISO(nii,bdir+os.sep+prefix+waterPrefix+'FullElasticSolution_Sub__.nii.gz')
+        ResaveNormalized(bdir+os.sep+prefix+waterPrefix+'FullElasticSolution_Sub.nii.gz',self._SkullMask)
         
         if subsamplingFactor>1:
             kt = ['p_amp','MaterialMap']
@@ -730,6 +756,8 @@ class BabelFTD_Simulations_BASE(object):
         DataForSim['TxMechanicalAdjustmentX']=self._TxMechanicalAdjustmentX
         DataForSim['TxMechanicalAdjustmentY']=self._TxMechanicalAdjustmentY
         DataForSim['TxMechanicalAdjustmentZ']=self._TxMechanicalAdjustmentZ
+        DataForSim['ZIntoSkin']=self._ZIntoSkin
+        DataForSim['ZIntoSkinPixels']=self._SIM_SETTINGS._ZIntoSkinPixels
 
         self.AddSaveDataSim(DataForSim)
         ###
@@ -813,6 +841,7 @@ class SimulationConditionsBASE(object):
                       TxMechanicalAdjustmentX =0, # in case we want to move mechanically the Tx (useful when targeting shallow locations such as M1 and we want to evaluate if an small mechnical adjustment can ensure focusing)
                       TxMechanicalAdjustmentY =0, # in case we want to move mechanically the Tx (useful when targeting shallow locations such as M1 and we want to evaluate if an small mechnical adjustment can ensure focusing)
                       TxMechanicalAdjustmentZ =0, # in case we want to move mechanically the Tx (useful when targeting shallow locations such as M1 and we want to evaluate if an small mechnical adjustment can ensure focusing)
+                      ZIntoSkin=0.0, # in case we want to push the Tx "into" the skin simulating compressing the Tx in the scalp (removing tissue layers)
                       DensityCTMap=None, #use CT map
                       DispersionCorrection=[-2307.53581298, 6875.73903172, -7824.73175146, 4227.49417250, -975.22622721]):  #coefficients to correct for values lower of CFL =1.0 in wtaer conditions.
         self._Materials=[[baseMaterial[0],baseMaterial[1],baseMaterial[2],baseMaterial[3],baseMaterial[4]]]
@@ -844,7 +873,10 @@ class SimulationConditionsBASE(object):
         self._TxMechanicalAdjustmentX=TxMechanicalAdjustmentX
         self._TxMechanicalAdjustmentY=TxMechanicalAdjustmentY
         self._TxMechanicalAdjustmentZ=TxMechanicalAdjustmentZ
+        self._ZIntoSkin=ZIntoSkin
         self._DensityCTMap=DensityCTMap
+        self._ZIntoSkinPixels=0 # To be updated in UpdateConditions
+        self._ZSourceLocation= 0.0 # To be updated in UpdateConditions
 
         
         
@@ -921,6 +953,9 @@ class SimulationConditionsBASE(object):
         
         self._SpatialStep=SpatialStep
         self._TemporalStep=TemporalStep
+
+        self._ZIntoSkinPixels=int(np.round(self._ZIntoSkin/SpatialStep))
+        self._ZSourceLocation=self._ZIntoSkinPixels+self._PMLThickness
         
         #we save the mask array and flipped
         self._SkullMaskDataOrig=np.flip(SkullMaskNii.get_fdata(),axis=2)
@@ -984,9 +1019,9 @@ class SimulationConditionsBASE(object):
             if self._FocalLength!=0:
                 DistanceToFocus=self._FocalLength-TopZ+self._TxMechanicalAdjustmentZ
                 Alpha=np.arcsin(self._Aperture/2/self._FocalLength)
-                RadiusFace=DistanceToFocus*np.tan(Alpha)*1.05 # we make a bit larger to be sure of covering all incident beam
+                RadiusFace=DistanceToFocus*np.tan(Alpha)*1.10 # we make a bit larger to be sure of covering all incident beam
             else:
-                RadiusFace=self._Aperture/2*1.05
+                RadiusFace=self._Aperture/2*1.10
             
             print('RadiusFace',RadiusFace)
             print('yfield',yfield.min(),yfield.max())
@@ -1096,7 +1131,6 @@ elif self._bTightNarrowBeamDomain:
                                 self._SkullMaskDataOrig.astype(np.uint32)[self._XShrink_L:upperXR,
                                                                          self._YShrink_L:upperYR,
                                                                          self._ZShrink_L:upperZR]
-
             if self._DensityCTMap is not None:
                 assert(self._DensityCTMap.dtype==np.uint32)
                 BoneRegion=(self._MaterialMap==2) | (self._MaterialMap==3)
@@ -1115,6 +1149,9 @@ elif self._bTightNarrowBeamDomain:
 
             else:
                 self._MaterialMap[self._MaterialMap==5]=4 # this is to make the focal spot location as brain tissue
+
+            #We remove tissue layers
+            self._MaterialMap[:,:,:self._ZSourceLocation] = 0 # we remove tissue layers by putting water
         
         print('PPP, Duration simulation',np.round(1/self._Frequency/TemporalStep),self._TimeSimulation*1e6)
         
