@@ -72,17 +72,17 @@ class H317(BabelBaseTx):
     @Slot()
     def XSteeringUpdate(self,value):
         self._XSteering =self.Widget.XSteeringSpinBox.value()/1e3
-        print('XSteering',self._XSteering*1e3)
+        # print('XSteering',self._XSteering*1e3)
 
     @Slot()
     def YSteeringUpdate(self,value):
         self._YSteering =self.Widget.YSteeringSpinBox.value()/1e3
-        print('YSteering',self._YSteering*1e3)
+        # print('YSteering',self._YSteering*1e3)
 
     @Slot()
     def ZSteeringUpdate(self,value):
         self._ZSteering =self.Widget.ZSteeringSpinBox.value()/1e3
-        print('ZSteering',self._ZSteering*1e3)
+        # print('ZSteering',self._ZSteering*1e3)
 
     @Slot()
     def EnableRefocusing(self,value):
@@ -330,8 +330,8 @@ class H317(BabelBaseTx):
             self._static_ax1 = static_ax1
             self._static_ax2 = static_ax2
 
-            # self._imContourf1=static_ax1.contourf(self._XX,self._ZZX,sliceXZ.T,np.arange(2,22,2)/20,cmap=plt.cm.jet)
-            self._imContourf1=static_ax1.contourf(self._XX,self._ZZX,sliceXZ.T,cmap=plt.cm.jet)
+            self._imContourf1=static_ax1.contourf(self._XX,self._ZZX,sliceXZ.T,np.arange(2,22,2)/20,cmap=plt.cm.jet)
+            # self._imContourf1=static_ax1.contourf(self._XX,self._ZZX,sliceXZ.T,cmap=plt.cm.jet)
             h=plt.colorbar(self._imContourf1,ax=static_ax1)
             h.set_label('$I_{\mathrm{SPPA}}$ (normalized)')
             self._contour1 = static_ax1.contour(self._XX,self._ZZX,self._Skull['MaterialMap'][:,SelY,:].T,[0,1,2,3], cmap=plt.cm.gray)
@@ -341,7 +341,7 @@ class H317(BabelBaseTx):
             static_ax1.invert_yaxis()
             static_ax1.plot(0,self._DistanceToTarget,'+y',markersize=18)
                 
-            self._imContourf2=static_ax2.contourf(self._YY,self._ZZY,sliceYZ.T,cmap=plt.cm.jet)
+            # self._imContourf2=static_ax2.contourf(self._YY,self._ZZY,sliceYZ.T,cmap=plt.cm.jet)
             self._imContourf2=static_ax2.contourf(self._YY,self._ZZY,sliceYZ.T,np.arange(2,22,2)/20,cmap=plt.cm.jet)
             h=plt.colorbar(self._imContourf1,ax=static_ax2)
             h.set_label('$I_{\mathrm{SPPA}}$ (normalized)')
@@ -397,15 +397,13 @@ class RunAcousticSim(QObject):
         #Temp add to check for x and y steering
         XSteering=self._mainApp.AcSim.Widget.XSteeringSpinBox.value()/1e3
         YSteering=self._mainApp.AcSim.Widget.YSteeringSpinBox.value()/1e3
-
-
         ZSteering=self._mainApp.AcSim.Widget.ZSteeringSpinBox.value()/1e3  #Add here the final adjustment)
         # XSteering=1-6e
         ##############
         RotationZ=self._mainApp.AcSim.Widget.ZRotationSpinBox.value()
 
 
-        print('Steering: X=%2.1f, Y=%2.1f, Z=%2.1f' % (XSteering*1e3, YSteering*1e3, ZSteering*1e3))
+        # print('Steering: X=%2.1f, Y=%2.1f, Z=%2.1f' % (XSteering*1e3, YSteering*1e3, ZSteering*1e3))
         # print('ZSteering',ZSteering*1e3)
         print('RotationZ',RotationZ)
 

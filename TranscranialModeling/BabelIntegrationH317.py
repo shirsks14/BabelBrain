@@ -79,6 +79,8 @@ class RUN_SIM(RUN_SIM_BASE):
         self._ZSteering=ZSteering
         self._RotationZ=RotationZ
         self._DistanceConeToFocus=DistanceConeToFocus
+        print("Steering: X=%2.1f, Y=%2.1f, Z=%2.1f" % (self._XSteering*1e3, self._YSteering*1e3,  self._ZSteering*1e3))
+
         return super().RunCases(**kargs)
 
     def RunSteeringCases(self,DiameterCoverage=10e-3,extrasuffix='',ZSteering=0.0,**kargs):

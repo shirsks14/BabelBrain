@@ -397,7 +397,7 @@ def GetSkullMaskFromSimbNIBSSTL(SimbNIBSDir='4007/4007_keep/m2m_4007_keep/',
 
     # skin_mesh = trimesh.load_mesh(skin_stl)
     skull_mesh = trimesh.load_mesh(skull_stl)
-    skull_mesh =DoIntersect(skin_mesh,Cone)
+    skull_mesh =DoIntersect(skull_mesh,Cone)
     # temp_mesh = skull_mesh.copy()
     # tempRMat[0,2] *= 2
     # tempRMat[1,2] *= 2

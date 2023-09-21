@@ -167,13 +167,13 @@ class SelFiles(QDialog):
                 return True
             else:
                 self.msgDetails = "Selected SimbNIBS folder was not Charm generated"
-                return False
+                return True
         else: # Headreco
             if "headreco" in files:
                 return True
             else:
                 self.msgDetails = "Selected SimbNIBS folder was not Headreco generated"
-                return False
+                return True
 
     @Slot()
     def SelectTrajectory(self):

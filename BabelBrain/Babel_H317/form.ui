@@ -434,10 +434,10 @@ target (mm)</string>
     <number>1</number>
    </property>
    <property name="minimum">
-    <double>-5.000000000000000</double>
+    <double>-20.000000000000000</double>
    </property>
    <property name="maximum">
-    <double>5.000000000000000</double>
+    <double>20.000000000000000</double>
    </property>
    <property name="singleStep">
     <double>0.100000000000000</double>
@@ -472,10 +472,10 @@ target (mm)</string>
     <number>1</number>
    </property>
    <property name="minimum">
-    <double>-5.000000000000000</double>
+    <double>-20.000000000000000</double>
    </property>
    <property name="maximum">
-    <double>5.000000000000000</double>
+    <double>20.000000000000000</double>
    </property>
    <property name="singleStep">
     <double>0.100000000000000</double>
@@ -492,7 +492,9 @@ target (mm)</string>
    </property>
    <property name="text">
     <string>XSteering  (mm)</string>
-    <widget class="QWidget" name="IsppaScrollBars" native="true">
+   </property>
+  </widget>
+  <widget class="QWidget" name="IsppaScrollBars" native="true">
    <property name="geometry">
     <rect>
      <x>405</x>
