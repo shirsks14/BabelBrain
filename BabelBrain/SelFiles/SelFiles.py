@@ -161,19 +161,19 @@ class SelFiles(QDialog):
 
         files =  os.listdir(folderSimNIBS)
         files = str(files).lower()
-
-        if self.ui.SimbNIBSTypecomboBox.currentIndex() == 0: # Charm
-            if "charm" in files:
-                return True
-            else:
-                self.msgDetails = "Selected SimbNIBS folder was not Charm generated"
-                return True
-        else: # Headreco
-            if "headreco" in files:
-                return True
-            else:
-                self.msgDetails = "Selected SimbNIBS folder was not Headreco generated"
-                return True
+        return False
+        # if self.ui.SimbNIBSTypecomboBox.currentIndex() == 0: # Charm
+        #     if "charm" in files:
+        #         return True
+        #     else:
+        #         self.msgDetails = "Selected SimbNIBS folder was not Charm generated"
+        #         return True
+        # else: # Headreco
+        #     if "headreco" in files:
+        #         return True
+        #     else:
+        #         self.msgDetails = "Selected SimbNIBS folder was not Headreco generated"
+        #         return True
 
     @Slot()
     def SelectTrajectory(self):
@@ -226,17 +226,18 @@ class SelFiles(QDialog):
     @Slot()
     def Continue(self):
         self.msgDetails = ""
-        if not self.ValidTrajectory() or\
-           not self.ValidSimNIBS() or\
-           not os.path.isfile(self.ui.T1WlineEdit.text()) or\
-           (self.ui.CTTypecomboBox.currentIndex()>0 and not os.path.isfile(self.ui.CTlineEdit.text())) or\
-           not os.path.isfile(self.ui.ThermalProfilelineEdit.text()) :
-            msgBox = QMessageBox()
-            msgBox.setText("Please indicate valid entries")
-            msgBox.setDetailedText(self.msgDetails)
-            msgBox.exec()
-        else:
-            self.accept()
+        self.accept()
+        # if not self.ValidTrajectory() or\
+        #    not self.ValidSimNIBS() or\
+        #    not os.path.isfile(self.ui.T1WlineEdit.text()) or\
+        #    (self.ui.CTTypecomboBox.currentIndex()>0 and not os.path.isfile(self.ui.CTlineEdit.text())) or\
+        #    not os.path.isfile(self.ui.ThermalProfilelineEdit.text()) :
+        #     msgBox = QMessageBox()
+        #     msgBox.setText("Please indicate valid entries")
+        #     msgBox.setDetailedText(self.msgDetails)
+        #     msgBox.exec()
+        # else:
+        #     self.accept()
 
     @Slot()
     def Cancel(self):

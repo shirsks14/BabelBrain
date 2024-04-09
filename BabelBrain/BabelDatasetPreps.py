@@ -33,6 +33,7 @@ import pandas as pd
 import platform
 import sys
 from linetimer import CodeTimer
+from BabelViscoFDTD.H5pySimple import SaveToH5py
 try:
     import CTZTEProcessing
 except:
@@ -231,6 +232,17 @@ def DoIntersect(Mesh1,Mesh2):
         Mesh1_intersect =trimesh.boolean.intersection((Mesh1_intersect,Mesh2),engine='blender')
     return Mesh1_intersect
 
+def DoUnion(Mesh1,Mesh2):
+    #We took now some extra steps for broken meshes
+    Mesh1_intersect =trimesh.boolean.union((Mesh1,Mesh2),engine='blender')
+    try:
+        dummy = Mesh1_intersect.triangles #if empty, this trigger an error
+    except:
+        print('mesh is invalid... trying to fix')
+        Mesh1_intersect=FixMesh(Mesh1)
+        Mesh1_intersect =trimesh.boolean.union((Mesh1_intersect,Mesh2),engine='blender')
+    return Mesh1_intersect
+
 def FixMesh(inmesh):
     with tempfile.TemporaryDirectory() as tmpdirname:
         inmesh.export(tmpdirname+os.sep+'__in.stl')
@@ -397,7 +409,9 @@ def GetSkullMaskFromSimbNIBSSTL(SimbNIBSDir='4007/4007_keep/m2m_4007_keep/',
 
     # skin_mesh = trimesh.load_mesh(skin_stl)
     skull_mesh = trimesh.load_mesh(skull_stl)
-    skull_mesh =DoIntersect(skull_mesh,Cone)
+    # skull_mesh =DoIntersect(skull_mesh,Cone)
+    skull_mesh =DoUnion(skull_mesh,Cone)
+
     # temp_mesh = skull_mesh.copy()
     # tempRMat[0,2] *= 2
     # tempRMat[1,2] *= 2
@@ -423,11 +437,34 @@ def GetSkullMaskFromSimbNIBSSTL(SimbNIBSDir='4007/4007_keep/m2m_4007_keep/',
     # x_vec=np.arange(skull_grid[:,0].min(),skull_grid[:,0].min()+1.5*HeightCone+SpatialStep,SpatialStep)
     # y_vec=np.arange(skull_grid[:,1].min(),skull_grid[:,1].min()+1.5*HeightCone+SpatialStep,SpatialStep)
     # z_vec=np.arange(skull_grid[:,2].min(),skull_grid[:,2].min()+1.5*HeightCone+SpatialStep,SpatialStep)
+            
+    print('Intersect (min):', [skull_grid[:,0].min(), skull_grid[:,1].min(), skull_grid[:,2].min()])
+    print('Intersect (max):', [skull_grid[:,0].max(), skull_grid[:,1].max(), skull_grid[:,2].max()])
     
-    x_vec=np.arange(skull_grid[:,0].min(),skull_grid[:,0].max()+2*(Location[0]-skull_grid[:,0].min())+SpatialStep,SpatialStep)
-    y_vec=np.arange(skull_grid[:,1].min(),skull_grid[:,1].max()+2*(Location[1]-skull_grid[:,1].min())+SpatialStep,SpatialStep)
-    z_vec=np.arange(skull_grid[:,2].min(),skull_grid[:,2].max()+2*(Location[2]-skull_grid[:,2].min())+SpatialStep,SpatialStep)
     
+    # x_vec=np.arange(skull_grid[:,0].min(),skull_grid[:,0].max()+2*(Location[0]-skull_grid[:,0].min())+SpatialStep,SpatialStep)
+    # y_vec=np.arange(skull_grid[:,1].min(),skull_grid[:,1].max()+2*(Location[1]-skull_grid[:,1].min())+SpatialStep,SpatialStep)
+    # z_vec=np.arange(skull_grid[:,2].min(),skull_grid[:,2].max()+2*(Location[2]-skull_grid[:,2].min())+SpatialStep,SpatialStep)
+    
+
+    # if not x_vec.size:
+    #     x_vec=np.arange((2*Location[0]-skull_grid[:,0].min()),skull_grid[:,0].max()+SpatialStep,SpatialStep)
+    # if not y_vec.size:
+    #     y_vec=np.arange((2*Location[1]-skull_grid[:,1].min()),skull_grid[:,1].max()+SpatialStep,SpatialStep)
+    # if not z_vec.size:
+    #     z_vec=np.arange((2*Location[2]-skull_grid[:,2].min()),skull_grid[:,2].max()+SpatialStep,SpatialStep)
+
+    # x_vec=np.arange(np.min([skull_grid[:,0].min(),Cone[0]]),np.max([skull_grid[:,0].max(),Cone[0]])+SpatialStep,SpatialStep)
+    # y_vec=np.arange(np.min([skull_grid[:,1].min(),Cone[1]]),np.max([skull_grid[:,1].max(),Cone[1]])+SpatialStep,SpatialStep)
+    # z_vec=np.arange(np.min([skull_grid[:,2].min(),Cone[2]]),np.max([skull_grid[:,2].max(),Cone[2]])+SpatialStep,SpatialStep)
+
+    x_vec=np.arange(skull_grid[:,0].min(),skull_grid[:,0].max()+SpatialStep,SpatialStep)
+    y_vec=np.arange(skull_grid[:,1].min(),skull_grid[:,1].max()+SpatialStep,SpatialStep)
+    z_vec=np.arange(skull_grid[:,2].min(),skull_grid[:,2].max()+SpatialStep,SpatialStep)
+
+    print('x_vec:', [x_vec.min(), x_vec.max()])
+    print('y_vec:', [y_vec.min(), y_vec.max()])
+    print('z_vec:', [z_vec.min(), z_vec.max()])
     # Change to add a arbitary corners for bounding box to account for no full skull
     Corner1=np.array([x_vec[0],y_vec[0],z_vec[0],1]).reshape((4,1))
     Corner2=np.array([x_vec[-1],y_vec[-1],z_vec[-1],1]).reshape((4,1))
@@ -649,7 +686,8 @@ def GetSkullMaskFromSimbNIBSSTL(SimbNIBSDir='4007/4007_keep/m2m_4007_keep/',
 
     # Now we deal if CT or ZTE has beegn given as input
     if CT_or_ZTE_input is  None:
-        FinalMask[BinMaskConformalSkullRot==1]=2 #cortical
+        FinalMask[BinMaskConformalSkullRot==1]=2 #set to cortical
+        FinalMask[FinalMask==1]=0 #remove skin
         # FinalMask[BinMaskConformalCSFRot==1]=0#brain
     else:
         if bIsZTE:
@@ -846,6 +884,9 @@ def GetSkullMaskFromSimbNIBSSTL(SimbNIBSDir='4007/4007_keep/m2m_4007_keep/',
     
     FinalMask[LocFocalPoint[0],LocFocalPoint[1],LocFocalPoint[2]]=5 #focal point location
     print('Local Focal Point', [LocFocalPoint[0],LocFocalPoint[1],LocFocalPoint[2]])
+
+    FinalMask[FinalMask==1]=0 #Remove Skin
+    
     mask_nifti2 = nibabel.Nifti1Image(FinalMask, affine=baseaffineRot)
 
     outname=os.path.dirname(T1Conformal_nii)+os.sep+prefix+'BabelViscoInput.nii.gz'
@@ -861,7 +902,9 @@ def GetSkullMaskFromSimbNIBSSTL(SimbNIBSDir='4007/4007_keep/m2m_4007_keep/',
         plt.imshow(FinalMask[:,LocFocalPoint[1],:],cmap=plt.cm.jet)
         plt.gca().set_aspect(1.0)
         plt.colorbar()
-    
+    MasktoSave = {}
+    MasktoSave['FinalMask']=FinalMask
+    SaveToH5py(MasktoSave, SimbNIBSDir+os.sep+'FinalMask.h5')
     return FinalMask 
 
 

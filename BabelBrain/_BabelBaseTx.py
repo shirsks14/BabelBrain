@@ -67,7 +67,7 @@ class BabelBaseTx(QWidget):
             IntWaterLocation=IWater[LocTarget[0],LocTarget[1],LocTarget[2]]
             IntSkullLocation=ISkull[LocTarget[0],LocTarget[1],LocTarget[2]]
             
-            ISkull[Skull['MaterialMap']!=3]=0
+            ISkull[Skull['MaterialMap']!=0]=0
             cxr,cyr,czr=np.where(ISkull==ISkull.max())
             cxr=cxr[0]
             cyr=cyr[0]

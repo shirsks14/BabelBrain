@@ -565,8 +565,15 @@ class BabelFTD_Simulations_BASE(object):
             # New method using US Imaging
             elif self._MappingMethod=='US-Imaging':
                 DensityCTIT=HUtoDensityMarsac(AllBoneHU)
-                LSoSIT=2692.54*np.ones_like(DensityCTIT)
-                # LSoSIT=2692.54
+
+
+                # LSoSIT=2691.07 # Skull 3880
+
+                LSoSIT=2787 # Skull 4000
+                LSoSIT=LSoSIT*np.ones_like(DensityCTIT)
+
+                # LSoSIT = HUtoLongSpeedofSoundWebb(AllBoneHU)
+
                 LAttIT=HUtoAttenuationWebb(AllBoneHU,self._Frequency)
             else:
                 raise ValueError('Unknown mapping method -' +self._MappingMethod )

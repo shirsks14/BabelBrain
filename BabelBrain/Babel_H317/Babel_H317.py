@@ -71,7 +71,11 @@ class H317(BabelBaseTx):
 
     @Slot()
     def XSteeringUpdate(self,value):
-        self._XSteering =self.Widget.XSteeringSpinBox.value()/1e3
+        if self.Widget.XSteeringSpinBox.value() != 0.0:
+            self._XSteering =self.Widget.XSteeringSpinBox.value()/1e3
+        else:
+            self._XSteering =1e-6
+        
         # print('XSteering',self._XSteering*1e3)
 
     @Slot()
@@ -200,6 +204,8 @@ class H317(BabelBaseTx):
             self._MainApp.ThermalSim.setEnabled(True)
             Water=ReadFromH5py(self._WaterSolName)
             Skull=ReadFromH5py(self._FullSolName)
+            print('FullSolName: ', self._FullSolName)
+
             if self._MainApp._bInUseWithBrainsight:
                 if Skull['bDoRefocusing']:
                     #we update the name to be loaded in BSight
@@ -248,13 +254,18 @@ class H317(BabelBaseTx):
             EnergyAtFocusWater=IWater[:,:,LocTarget[2]].sum()
             EnergyAtFocusSkull=ISkull[:,:,LocTarget[2]].sum()
 
-            ISkull/=ISkull[Skull['MaterialMap']==3].max()
-            IWater/=IWater[Skull['MaterialMap']==3].max()
+
+
+            # ISkull/=ISkull[Skull['MaterialMap']==3].max()
+            # IWater/=IWater[Skull['MaterialMap']==3].max()
+
+            ISkull/=ISkull[Skull['MaterialMap']==0].max()
+            IWater/=IWater[Skull['MaterialMap']==0].max()
 
             Factor=EnergyAtFocusWater/EnergyAtFocusSkull
             print('*'*40+'\n'+'*'*40+'\n'+'Correction Factor for Isppa',Factor,'\n'+'*'*40+'\n'+'*'*40+'\n')
             
-            ISkull[Skull['MaterialMap']!=3]=0
+            ISkull[Skull['MaterialMap']!=0]=0
 
             dz=np.diff(Skull['z_vec']).mean()
             Zvec=Skull['z_vec'].copy()

@@ -294,21 +294,21 @@ def CalculateTemperatureEffects(InputPData,
     SaveDict['MaterialMap_central']=MaterialMap[:,cy,:]
     SaveDict['MaterialMap']=MaterialMap
 
-    TI=ResTemp[SelBrain].max()
+    # TI=ResTemp[SelBrain].max()
     
-    TIS=ResTemp[SelSkin].max()
+    # TIS=ResTemp[SelSkin].max()
 
     TIC=ResTemp[SelSkull].max()
     
-    print('Max. Temp. Brain, Max Temp. Skin, Max Temp. Skull',TI,TIS,TIC);
+    # print('Max. Temp. Brain, Max Temp. Skin, Max Temp. Skull',TI,TIS,TIC);
 
-    CEMBrain=FinalDose[SelBrain].max()/60 # in min
+    # CEMBrain=FinalDose[SelBrain].max()/60 # in min
     
-    CEMSkin=FinalDose[SelSkin].max()/60 # in min
+    # CEMSkin=FinalDose[SelSkin].max()/60 # in min
 
     CEMSkull=FinalDose[SelSkull].max()/60 # in min
     
-    print('CEMBrain,CEMSkin,CEMSkull',CEMBrain,CEMSkin,CEMSkull)
+    # print('CEMBrain,CEMSkin,CEMSkull',CEMBrain,CEMSkin,CEMSkull)
 
     if 'MaterialMapCT' in Input:
         MaxBrainPressure = SaveDict['p_map'][SaveDict['MaterialMap']==3].max()
@@ -334,11 +334,13 @@ def CalculateTemperatureEffects(InputPData,
     SaveDict['x_vec']=xf*1e3
     SaveDict['y_vec']=yf*1e3
     SaveDict['z_vec']=zf*1e3
-    SaveDict['TI']=TI-37.0
+    # SaveDict['TI']=TI-37.0
+    # SaveDict['TI']=37.0 #Place Holder
     SaveDict['TIC']=TIC-37.0
-    SaveDict['TIS']=TIS-37.0
-    SaveDict['CEMBrain']=CEMBrain
-    SaveDict['CEMSkin']=CEMSkin
+    # SaveDict['TIS']=TIS-37.0
+    #  SaveDict['TIS']=37.0 # Place Holder
+    # SaveDict['CEMBrain']=CEMBrain
+    # SaveDict['CEMSkin']=CEMSkin
     SaveDict['CEMSkull']=CEMSkull
     SaveDict['MaxIsppa']=MaxIsppa
     SaveDict['MaxIspta']=MaxIspta

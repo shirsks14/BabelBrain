@@ -49,7 +49,9 @@ def CalculateThermalProcess(queue,case,AllDC_PRF_Duration,**kargs):
             Backend='Metal'
 
         AllCases=[]
-        lf =['MaxBrainPressure','MaxIsppa', 'MaxIspta','MonitorSlice','TI','TIC','TIS','TempProfileTarget',\
+        # lf =['MaxBrainPressure','MaxIsppa', 'MaxIspta','MonitorSlice','TI','TIC','TIS','TempProfileTarget',\
+        #     'TimeProfileTarget','p_map_central','Isppa','Ispta','MI']
+        lf =['MaxBrainPressure','MaxIsppa', 'MaxIspta','MonitorSlice','TIC','TempProfileTarget',\
             'TimeProfileTarget','p_map_central','Isppa','Ispta','MI']
         Index=[]
         for combination in AllDC_PRF_Duration:
