@@ -2,7 +2,7 @@
 Base Class for Tx GUI, not to be instantiated directly
 '''
 
-from PySide6.QtWidgets import QWidget, QVBoxLayout
+from PySide6.QtWidgets import QWidget, QVBoxLayout,QMessageBox
 from PySide6.QtCore import Slot
 from PySide6.QtGui import QPalette
 from BabelViscoFDTD.H5pySimple import ReadFromH5py
@@ -16,29 +16,129 @@ from matplotlib.backends.backend_qtagg import (
     FigureCanvas,NavigationToolbar2QT)
 from GUIComponents.ScrollBars import ScrollBars as WidgetScrollBars
 
+from skimage.measure import label, regionprops, regionprops_table
+#auxiliary functions to measure metrics in acoustic fields
+
+def ellipsoid_axis_lengths(central_moments):
+    """Compute ellipsoid major, intermediate and minor axis length.
+
+    Parameters
+    ----------
+    central_moments : ndarray
+        Array of central moments as given by ``moments_central`` with order 2.
+
+    Returns
+    -------
+    axis_lengths: tuple of float
+        The ellipsoid axis lengths in descending order.
+    """
+    m0 = central_moments[0, 0, 0]
+    sxx = central_moments[2, 0, 0] / m0
+    syy = central_moments[0, 2, 0] / m0
+    szz = central_moments[0, 0, 2] / m0
+    sxy = central_moments[1, 1, 0] / m0
+    sxz = central_moments[1, 0, 1] / m0
+    syz = central_moments[0, 1, 1] / m0
+    S = np.asarray([[sxx, sxy, sxz], [sxy, syy, syz], [sxz, syz, szz]])
+    # determine eigenvalues in descending order
+    eigvals = np.sort(np.linalg.eigvalsh(S))[::-1]
+    return tuple([np.sqrt(20.0 * e) for e in eigvals]) 
+
+def CalcVolumetricMetrics(Data,voxelsize,Threshold=0.25):
+        '''
+        Threshold=0.25 
+        '''
+        label_img=label(Data>=Threshold)
+        props = regionprops(label_img)#, properties=('centroid',   'area', 'moments_central','axis_major_length','axis_minor_length'))
+        Res={}
+        if len(props)>1:
+            Volumes=[]
+            for p in props:
+                Volumes.append(p['area'])  
+            p=props[np.argmax(Volumes)]
+        else:
+            p=props[0]
+        Res['centroid']=p['centroid']*voxelsize
+        Res['volume']=p['area']*np.prod(voxelsize)
+        Axes=ellipsoid_axis_lengths(p['moments_central'])
+        Res['long_axis']=Axes[0]*voxelsize[0]
+        Res['minor_axis_1']=Axes[1]*voxelsize[1]
+        Res['minor_axis_2']=Axes[2]*voxelsize[2]
+        # print(Res)
+        return Res
+
+#Main Tx base class
 class BabelBaseTx(QWidget):
     def __init__(self,parent=None):
         super(BabelBaseTx, self).__init__(parent)
+
+    def ExportStep2Results(self,Results):
+        FocIJK=np.ones((4,1))
+        FocIJK[:3,0]=np.array(np.where(self._MainApp._FinalMask==5)).flatten()
+
+        FocXYZ=self._MainApp._MaskData.affine@FocIJK
+        FocIJKAdjust=FocIJK.copy()
+        #we adjust in steps
+        FocIJKAdjust[0,0]+=self.Widget.XMechanicSpinBox.value()/self._MainApp._MaskData.header.get_zooms()[0]
+        FocIJKAdjust[1,0]+=self.Widget.YMechanicSpinBox.value()/self._MainApp._MaskData.header.get_zooms()[1]
+
+        FocXYZAdjust=self._MainApp._MaskData.affine@FocIJKAdjust
+        AdjustmentInRAS=(FocXYZ-FocXYZAdjust).flatten()[:3]
+
+        print('AdjustmentInRAS recalc',AdjustmentInRAS)
+        print('AdjustmentInRAS orig',Results['AdjustmentInRAS'])
+
+
+        fnameTrajectory=self._MainApp.ExportTrajectory(CorX=Results['AdjustmentInRAS'][0],
+                                        CorY=Results['AdjustmentInRAS'][1],
+                                        CorZ=Results['AdjustmentInRAS'][2])
+        if self._MainApp.Config['bInUseWithBrainsight']:
+            with open(self._MainApp.Config['Brainsight-Output'],'w') as f:
+                f.write(self._MainApp._BrainsightInput)
+            with open(self._MainApp.Config['Brainsight-Target'],'w') as f:
+                f.write(fnameTrajectory)
+
+    def GetExtraSuffixAcFields(self):
+        #By default, it returns empty string, useful when dealing with user-specified geometry
+        return ""
+
+    def up_load_ui(self):
+        #please note this one needs to be called after child class called its load_ui
+        self.Widget.ShowWaterResultscheckBox.stateChanged.connect(self.UpdateAcResults)
+        self.Widget.HideMarkscheckBox.stateChanged.connect(self.UpdateAcResults)
+
+    @Slot()
+    def NotifyError(self):
+        self._MainApp.SetErrorAcousticsCode()
+        self._MainApp.hideClockDialog()
+        msgBox = QMessageBox()
+        msgBox.setIcon(QMessageBox.Critical)
+        msgBox.setText("There was an error in execution -\nconsult log window for details")
+        msgBox.exec()
     
     @Slot()
     def UpdateAcResults(self):
         '''
         This is a common function for most Tx to show results
         '''
+        self._MainApp.SetSuccesCode()
+        self.Widget.CalculateMechAdj.setEnabled(True)
         if self._bRecalculated:
-            #this will generate a modified trajectory file
+            self._MainApp.hideClockDialog()
             if self.Widget.ShowWaterResultscheckBox.isEnabled()== False:
                 self.Widget.ShowWaterResultscheckBox.setEnabled(True)
+            if self.Widget.HideMarkscheckBox.isEnabled()== False:
+                self.Widget.HideMarkscheckBox.setEnabled(True)
             self._MainApp.Widget.tabWidget.setEnabled(True)
             self._MainApp.ThermalSim.setEnabled(True)
             Water=ReadFromH5py(self._WaterSolName)
             Skull=ReadFromH5py(self._FullSolName)
-            if self._MainApp._bInUseWithBrainsight:
-                with open(self._MainApp._BrainsightSyncPath+os.sep+'Output.txt','w') as f:
-                    f.write(self._MainApp._BrainsightInput)    
-            self._MainApp.ExportTrajectory(CorX=Skull['AdjustmentInRAS'][0],
-                                        CorY=Skull['AdjustmentInRAS'][1],
-                                        CorZ=Skull['AdjustmentInRAS'][2])
+
+            extrasuffix=self.GetExtraSuffixAcFields()
+
+            self._MainApp._BrainsightInput=self._MainApp._prefix_path+extrasuffix+'FullElasticSolution_Sub_NORM.nii.gz'
+
+            self.ExportStep2Results(Skull)    
 
             LocTarget=Skull['TargetLocation']
             print(LocTarget)
@@ -79,13 +179,6 @@ class BabelBaseTx(QWidget):
             cxr=cxr[0]
             cyr=cyr[0]
             czr=czr[0]
-
-            EnergyAtFocusWater=IWater[:,:,czr].sum()*dx**2
-
-            print('EnergyAtFocusWater',EnergyAtFocusWater,'EnergyAtFocusSkull',EnergyAtFocusSkull)
-            
-            Factor=EnergyAtFocusWater/EnergyAtFocusSkull
-            print('*'*40+'\n'+'*'*40+'\n'+'Correction Factor for Isppa',Factor,'\n'+'*'*40+'\n'+'*'*40+'\n')
             
             ISkull/=ISkull.max()
             IWater/=IWater.max()
@@ -166,7 +259,7 @@ class BabelBaseTx(QWidget):
             static_ax1.set_xlabel('X mm')
             static_ax1.set_ylabel('Z mm')
             static_ax1.invert_yaxis()
-            static_ax1.plot(0,self._DistanceToTarget,'+y',markersize=18)
+            self._marker1,=static_ax1.plot(0,self._DistanceToTarget,'+k',markersize=18)
 
             self._imContourf2=static_ax2.contourf(self._YY,self._ZZY,Field[SelX,:,:].T,np.arange(2,22,2)/20,cmap=plt.cm.jet)
             h=plt.colorbar(self._imContourf1,ax=static_ax2)
@@ -176,11 +269,47 @@ class BabelBaseTx(QWidget):
             static_ax2.set_xlabel('Y mm')
             static_ax2.set_ylabel('Z mm')
             static_ax2.invert_yaxis()
-            static_ax2.plot(0,self._DistanceToTarget,'+y',markersize=18)
+            self._marker2,=static_ax2.plot(0,self._DistanceToTarget,'+k',markersize=18)
 
         self._figAcField.set_facecolor(np.array(self.Widget.palette().color(QPalette.Window).getRgb())/255)
 
-        #f.set_title('MAIN SIMULATION RESULTS')
+        mc=[0.0,0.0,0.0,1.0]
+        if self.Widget.HideMarkscheckBox.isChecked():
+             mc[3] = 0.0
+        self._marker1.set_markerfacecolor(mc)
+        self._marker2.set_markerfacecolor(mc)
         self.Widget.IsppaScrollBars.update_labels(SelX, SelY)
         self._bRecalculated = False
  
+    def GetExport(self):
+        Export={}
+        Export['DistanceSkinToTarget']=self.Widget.DistanceSkinLabel.property('UserData')
+        return Export
+    
+    def EnableMultiPoint(self,MultiPoint):
+        #MuliPoint is a list of dictionaries with entries ['X':value,'Y':value,'Z':value], each indicating steering conditions for each point
+        pass #to be defined by those Tx capable of multi-point
+    
+    @Slot()
+    def CalculateMechAdj(self):
+        #this calculates the required mechanical correction to center acoustic beam
+        #to the target
+        dx=  np.mean(np.diff(self._Skull['x_vec']))
+        voxelsize=np.array([dx,dx,dx])
+        stats=CalcVolumetricMetrics(self._ISkull,voxelsize)
+        x_o=np.unique(self._XX)
+        y_o=np.unique(self._YY)
+        z_o=np.unique(self._ZZX)
+        #we get the centroid in the displayed axes convention
+        centroid=stats['centroid']+np.array([x_o.min(),y_o.min(),z_o.min()])
+        X_correction = np.round(centroid[0]-x_o[self._Skull['TargetLocation'][0]],1)
+        Y_correction = np.round(centroid[1]-y_o[self._Skull['TargetLocation'][1]],1)
+        ret = QMessageBox.question(self,'', "The focal spot's center of mass (-6dB) "+
+                                   'is [%3.1f,%3.1f]' % (X_correction,Y_correction) + " mm-off in [X,Y] relative to the target.\n"+
+                                    "Do you want to apply a mechanical correction?",
+                QMessageBox.Yes | QMessageBox.No)
+        if ret == QMessageBox.Yes:
+            curX=self.Widget.XMechanicSpinBox.value()
+            curY=self.Widget.YMechanicSpinBox.value()
+            self.Widget.XMechanicSpinBox.setValue(curX-X_correction)
+            self.Widget.YMechanicSpinBox.setValue(curY-Y_correction)

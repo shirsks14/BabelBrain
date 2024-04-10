@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1226</width>
+    <width>1247</width>
     <height>473</height>
    </rect>
   </property>
@@ -20,7 +20,7 @@
    <property name="geometry">
     <rect>
      <x>33</x>
-     <y>201</y>
+     <y>180</y>
      <width>143</width>
      <height>20</height>
     </rect>
@@ -33,7 +33,7 @@
    <property name="geometry">
     <rect>
      <x>210</x>
-     <y>170</y>
+     <y>140</y>
      <width>76</width>
      <height>31</height>
     </rect>
@@ -50,12 +50,15 @@
    <property name="text">
     <string>0.0</string>
    </property>
+   <property name="textInteractionFlags">
+    <set>Qt::LinksAccessibleByMouse|Qt::TextSelectableByMouse</set>
+   </property>
   </widget>
   <widget class="QLabel" name="label_21">
    <property name="geometry">
     <rect>
      <x>32</x>
-     <y>160</y>
+     <y>130</y>
      <width>150</width>
      <height>38</height>
     </rect>
@@ -75,7 +78,7 @@ to target (mm) :</string>
    <property name="geometry">
     <rect>
      <x>201</x>
-     <y>199</y>
+     <y>178</y>
      <width>90</width>
      <height>22</height>
     </rect>
@@ -103,7 +106,7 @@ to target (mm) :</string>
    <property name="geometry">
     <rect>
      <x>34</x>
-     <y>231</y>
+     <y>210</y>
      <width>143</width>
      <height>20</height>
     </rect>
@@ -116,7 +119,7 @@ to target (mm) :</string>
    <property name="geometry">
     <rect>
      <x>202</x>
-     <y>229</y>
+     <y>208</y>
      <width>90</width>
      <height>22</height>
     </rect>
@@ -140,13 +143,13 @@ to target (mm) :</string>
     <double>0.000000000000000</double>
    </property>
   </widget>
-  <widget class="QPushButton" name="CalculatePlanningMask">
+  <widget class="QPushButton" name="CalculateAcField">
    <property name="geometry">
     <rect>
-     <x>88</x>
-     <y>390</y>
-     <width>131</width>
-     <height>81</height>
+     <x>34</x>
+     <y>379</y>
+     <width>226</width>
+     <height>48</height>
     </rect>
    </property>
    <property name="autoFillBackground">
@@ -173,7 +176,7 @@ to target (mm) :</string>
    <property name="geometry">
     <rect>
      <x>202</x>
-     <y>261</y>
+     <y>240</y>
      <width>90</width>
      <height>22</height>
     </rect>
@@ -201,7 +204,7 @@ to target (mm) :</string>
    <property name="geometry">
     <rect>
      <x>34</x>
-     <y>263</y>
+     <y>242</y>
      <width>143</width>
      <height>20</height>
     </rect>
@@ -296,7 +299,7 @@ to target (mm) :</string>
    <property name="geometry">
     <rect>
      <x>210</x>
-     <y>106</y>
+     <y>90</y>
      <width>76</width>
      <height>31</height>
     </rect>
@@ -313,13 +316,16 @@ to target (mm) :</string>
    <property name="text">
     <string>0.0</string>
    </property>
+   <property name="textInteractionFlags">
+    <set>Qt::LinksAccessibleByMouse|Qt::TextSelectableByMouse</set>
+   </property>
   </widget>
   <widget class="QLabel" name="label_26">
    <property name="geometry">
     <rect>
      <x>34</x>
-     <y>100</y>
-     <width>150</width>
+     <y>84</y>
+     <width>159</width>
      <height>51</height>
     </rect>
    </property>
@@ -327,9 +333,8 @@ to target (mm) :</string>
     <string notr="true">color:rgb(22, 110, 255)</string>
    </property>
    <property name="text">
-    <string>Distance from
-Tx's outplane
-to focus</string>
+    <string>Distance from Tx's 
+outplane to focus</string>
    </property>
    <property name="indent">
     <number>0</number>
@@ -339,7 +344,7 @@ to focus</string>
    <property name="geometry">
     <rect>
      <x>210</x>
-     <y>299</y>
+     <y>278</y>
      <width>76</width>
      <height>31</height>
     </rect>
@@ -356,12 +361,15 @@ to focus</string>
    <property name="text">
     <string>0.0</string>
    </property>
+   <property name="textInteractionFlags">
+    <set>Qt::LinksAccessibleByMouse|Qt::TextSelectableByMouse</set>
+   </property>
   </widget>
   <widget class="QLabel" name="label_27">
    <property name="geometry">
     <rect>
      <x>35</x>
-     <y>300</y>
+     <y>279</y>
      <width>150</width>
      <height>31</height>
     </rect>
@@ -381,7 +389,7 @@ to skin (mm) :</string>
    <property name="geometry">
     <rect>
      <x>36</x>
-     <y>359</y>
+     <y>338</y>
      <width>153</width>
      <height>30</height>
     </rect>
@@ -398,7 +406,7 @@ target (mm)</string>
    <property name="geometry">
     <rect>
      <x>204</x>
-     <y>367</y>
+     <y>346</y>
      <width>90</width>
      <height>22</height>
     </rect>
@@ -426,7 +434,7 @@ target (mm)</string>
    <property name="geometry">
     <rect>
      <x>250</x>
-     <y>300</y>
+     <y>279</y>
      <width>104</width>
      <height>30</height>
     </rect>
@@ -452,7 +460,7 @@ will be removed!</string>
     <rect>
      <x>405</x>
      <y>410</y>
-     <width>730</width>
+     <width>722</width>
      <height>61</height>
     </rect>
    </property>
@@ -463,19 +471,64 @@ will be removed!</string>
    </property>
    <property name="geometry">
     <rect>
-     <x>1153</x>
-     <y>416</y>
-     <width>71</width>
+     <x>1154</x>
+     <y>418</y>
+     <width>81</width>
      <height>51</height>
     </rect>
    </property>
    <property name="text">
     <string>Show
-water
-only</string>
+water only</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="HideMarkscheckBox">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="geometry">
+    <rect>
+     <x>278</x>
+     <y>426</y>
+     <width>94</width>
+     <height>28</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Hide marks</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="CalculateMechAdj">
+   <property name="geometry">
+    <rect>
+     <x>34</x>
+     <y>426</y>
+     <width>227</width>
+     <height>48</height>
+    </rect>
+   </property>
+   <property name="autoFillBackground">
+    <bool>false</bool>
+   </property>
+   <property name="styleSheet">
+    <string notr="true"/>
+   </property>
+   <property name="text">
+    <string>Calculate Mechanical Adjustments</string>
    </property>
   </widget>
  </widget>
+ <tabstops>
+  <tabstop>FocalLengthSpinBox</tabstop>
+  <tabstop>DiameterSpinBox</tabstop>
+  <tabstop>XMechanicSpinBox</tabstop>
+  <tabstop>YMechanicSpinBox</tabstop>
+  <tabstop>ZMechanicSpinBox</tabstop>
+  <tabstop>MaxDepthSpinBox</tabstop>
+  <tabstop>CalculateAcField</tabstop>
+  <tabstop>HideMarkscheckBox</tabstop>
+  <tabstop>ShowWaterResultscheckBox</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

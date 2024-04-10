@@ -91,6 +91,9 @@
    <property name="text">
     <string>0.0</string>
    </property>
+   <property name="textInteractionFlags">
+    <set>Qt::LinksAccessibleByMouse|Qt::TextSelectableByMouse</set>
+   </property>
   </widget>
   <widget class="QLabel" name="label_21">
    <property name="geometry">
@@ -181,25 +184,6 @@ to target (mm) :</string>
     <double>0.000000000000000</double>
    </property>
   </widget>
-  <widget class="QPushButton" name="CalculatePlanningMask">
-   <property name="geometry">
-    <rect>
-     <x>124</x>
-     <y>373</y>
-     <width>131</width>
-     <height>81</height>
-    </rect>
-   </property>
-   <property name="autoFillBackground">
-    <bool>false</bool>
-   </property>
-   <property name="styleSheet">
-    <string notr="true"/>
-   </property>
-   <property name="text">
-    <string>Calculate Fields</string>
-   </property>
-  </widget>
   <widget class="QWidget" name="AcField_plot1" native="true">
    <property name="geometry">
     <rect>
@@ -210,7 +194,7 @@ to target (mm) :</string>
     </rect>
    </property>
   </widget>
-  <widget class="QLabel" name="label_24">
+  <widget class="QLabel" name="ZMechaniclabel">
    <property name="geometry">
     <rect>
      <x>30</x>
@@ -255,7 +239,7 @@ to target (mm) :</string>
    <property name="geometry">
     <rect>
      <x>223</x>
-     <y>23</y>
+     <y>10</y>
      <width>27</width>
      <height>20</height>
     </rect>
@@ -276,7 +260,7 @@ to target (mm) :</string>
    <property name="geometry">
     <rect>
      <x>30</x>
-     <y>22</y>
+     <y>9</y>
      <width>143</width>
      <height>20</height>
     </rect>
@@ -323,7 +307,7 @@ to target (mm) :</string>
    <property name="geometry">
     <rect>
      <x>30</x>
-     <y>61</y>
+     <y>41</y>
      <width>191</width>
      <height>20</height>
     </rect>
@@ -377,7 +361,7 @@ to target (mm) :</string>
    <property name="geometry">
     <rect>
      <x>20</x>
-     <y>332</y>
+     <y>342</y>
      <width>153</width>
      <height>30</height>
     </rect>
@@ -394,7 +378,7 @@ target (mm)</string>
    <property name="geometry">
     <rect>
      <x>229</x>
-     <y>340</y>
+     <y>350</y>
      <width>90</width>
      <height>22</height>
     </rect>
@@ -510,19 +494,203 @@ target (mm)</string>
    </property>
    <property name="geometry">
     <rect>
-     <x>1177</x>
-     <y>416</y>
-     <width>71</width>
+     <x>1148</x>
+     <y>417</y>
+     <width>93</width>
      <height>51</height>
     </rect>
    </property>
    <property name="text">
     <string>Show
-water
-only</string>
+water only</string>
+   </property>
+  </widget>
+  <widget class="QCheckBox" name="HideMarkscheckBox">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="geometry">
+    <rect>
+     <x>281</x>
+     <y>422</y>
+     <width>97</width>
+     <height>28</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>Hide marks</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="MultifocusLabel">
+   <property name="geometry">
+    <rect>
+     <x>13</x>
+     <y>310</y>
+     <width>143</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="styleSheet">
+    <string notr="true">color:rgb(22, 110, 255)</string>
+   </property>
+   <property name="text">
+    <string>Multi-focus</string>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignCenter</set>
+   </property>
+  </widget>
+  <widget class="QComboBox" name="SelCombinationDropDown">
+   <property name="geometry">
+    <rect>
+     <x>142</x>
+     <y>307</y>
+     <width>185</width>
+     <height>30</height>
+    </rect>
+   </property>
+   <item>
+    <property name="text">
+     <string>ALL</string>
+    </property>
+   </item>
+  </widget>
+  <widget class="QDoubleSpinBox" name="YSteeringSpinBox">
+   <property name="geometry">
+    <rect>
+     <x>231</x>
+     <y>100</y>
+     <width>90</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+   </property>
+   <property name="decimals">
+    <number>1</number>
+   </property>
+   <property name="minimum">
+    <double>-5.000000000000000</double>
+   </property>
+   <property name="maximum">
+    <double>5.000000000000000</double>
+   </property>
+   <property name="singleStep">
+    <double>0.100000000000000</double>
+   </property>
+   <property name="value">
+    <double>0.000000000000000</double>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_28">
+   <property name="geometry">
+    <rect>
+     <x>29</x>
+     <y>101</y>
+     <width>143</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>YSteering  (mm)</string>
+   </property>
+  </widget>
+  <widget class="QLabel" name="label_29">
+   <property name="geometry">
+    <rect>
+     <x>29</x>
+     <y>73</y>
+     <width>143</width>
+     <height>20</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>XSteering  (mm)</string>
+   </property>
+  </widget>
+  <widget class="QDoubleSpinBox" name="XSteeringSpinBox">
+   <property name="geometry">
+    <rect>
+     <x>231</x>
+     <y>72</y>
+     <width>90</width>
+     <height>22</height>
+    </rect>
+   </property>
+   <property name="alignment">
+    <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
+   </property>
+   <property name="decimals">
+    <number>1</number>
+   </property>
+   <property name="minimum">
+    <double>-5.000000000000000</double>
+   </property>
+   <property name="maximum">
+    <double>5.000000000000000</double>
+   </property>
+   <property name="singleStep">
+    <double>0.100000000000000</double>
+   </property>
+   <property name="value">
+    <double>0.000000000000000</double>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="CalculateMechAdj">
+   <property name="geometry">
+    <rect>
+     <x>44</x>
+     <y>425</y>
+     <width>227</width>
+     <height>48</height>
+    </rect>
+   </property>
+   <property name="autoFillBackground">
+    <bool>false</bool>
+   </property>
+   <property name="styleSheet">
+    <string notr="true"/>
+   </property>
+   <property name="text">
+    <string>Calculate Mechanical Adjustments</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="CalculateAcField">
+   <property name="geometry">
+    <rect>
+     <x>44</x>
+     <y>378</y>
+     <width>226</width>
+     <height>48</height>
+    </rect>
+   </property>
+   <property name="autoFillBackground">
+    <bool>false</bool>
+   </property>
+   <property name="styleSheet">
+    <string notr="true"/>
+   </property>
+   <property name="text">
+    <string>Calculate Fields</string>
    </property>
   </widget>
  </widget>
+ <tabstops>
+  <tabstop>DistanceConeToFocusSpinBox</tabstop>
+  <tabstop>XSteeringSpinBox</tabstop>
+  <tabstop>YSteeringSpinBox</tabstop>
+  <tabstop>ZSteeringSpinBox</tabstop>
+  <tabstop>ZRotationSpinBox</tabstop>
+  <tabstop>XMechanicSpinBox</tabstop>
+  <tabstop>YMechanicSpinBox</tabstop>
+  <tabstop>ZMechanicSpinBox</tabstop>
+  <tabstop>SelCombinationDropDown</tabstop>
+  <tabstop>MaxDepthSpinBox</tabstop>
+  <tabstop>ShowWaterResultscheckBox</tabstop>
+  <tabstop>RefocusingcheckBox</tabstop>
+  <tabstop>HideMarkscheckBox</tabstop>
+ </tabstops>
  <resources/>
  <connections/>
 </ui>

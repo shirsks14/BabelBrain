@@ -19,7 +19,7 @@ import scipy
 from trimesh import creation 
 import trimesh
 import matplotlib.pyplot as plt
-from BabelViscoFDTD.tools.RayleighAndBHTE import ForwardSimple, InitCuda,InitOpenCL,SpeedofSoundWater
+from BabelViscoFDTD.tools.RayleighAndBHTE import ForwardSimple, SpeedofSoundWater
 
 ###########################################
 def GenerateSurface(lstep,Diam,Foc,IntDiam=0):
@@ -128,7 +128,7 @@ def GenerateSurface(lstep,Diam,Foc,IntDiam=0):
     Tx['elemdims']=np.array([[len(ds)]])
     return Tx
 
-def GenerateFocusTx(f,Foc,Diam,c,PPWSurface=4):
+def GenerateFocusTx(f,Foc,Diam,c,PPWSurface=5):
     wavelength = c/f
     lstep = wavelength/PPWSurface
 
@@ -220,7 +220,7 @@ class SimulationConditions(SimulationConditionsBASE):
     '''
     Class implementing the low level interface to prepare the details of the simulation conditions and execute the simulation
     '''
-    def __init__(self,FactorEnlarge = 2, #putting a Tx with same F# but just bigger helps to create a more coherent input field for FDTD
+    def __init__(self,FactorEnlarge = 1.0, #putting a Tx with same F# but just bigger helps to create a more coherent input field for FDTD
                       Aperture=64e-3, # m, aperture of the Tx, used to calculated cross section area entering the domain
                       FocalLength=63.2e-3,
                       **kargs): # steering
@@ -247,12 +247,16 @@ class SimulationConditions(SimulationConditionsBASE):
         return TxRC
     
     def CalculateRayleighFieldsForward(self,deviceName='6800'):
-        if platform != "darwin":
-            InitCuda()
         print("Precalculating Rayleigh-based field as input for FDTD...")
-        #first we generate the high res source of the tx elemens
+        #first we generate the high res source of the tx elements
         self._TxRC=self.GenTx()
         self._TxRCOrig=self.GenTx(bOrigDimensions=True)
+        
+        #We replicate as in the GUI as need to account for water pixels there in calculations where to truly put the Tx
+        TargetLocation =np.array(np.where(self._SkullMaskDataOrig==5.0)).flatten()
+        LineOfSight=self._SkullMaskDataOrig[TargetLocation[0],TargetLocation[1],:]
+        StartSkin=np.where(LineOfSight>0)[0].min()*self._SkullMaskNii.header.get_zooms()[2]/1e3
+        print('StartSkin',StartSkin)
         
         if self._bDisplay:
             from mpl_toolkits.mplot3d import Axes3D
@@ -276,8 +280,20 @@ class SimulationConditions(SimulationConditionsBASE):
             for k in ['center','VertDisplay','elemcenter']:
                 Tx[k][:,0]+=self._TxMechanicalAdjustmentX
                 Tx[k][:,1]+=self._TxMechanicalAdjustmentY
-                Tx[k][:,2]+=self._TxMechanicalAdjustmentZ
-        
+                Tx[k][:,2]+=self._TxMechanicalAdjustmentZ-StartSkin
+        Correction=0.0
+        while np.max(self._TxRC['center'][:,2])>=self._ZDim[self._ZSourceLocation]:
+            #at the most, we could be too deep only a fraction of a single voxel, in such case we just move the Tx back a single step
+            for Tx in [self._TxRC,self._TxRCOrig]:
+                for k in ['center','VertDisplay','elemcenter']:
+                    Tx[k][:,2]-=self._SkullMaskNii.header.get_zooms()[2]/1e3
+            Correction+=self._SkullMaskNii.header.get_zooms()[2]/1e3
+        if Correction>0:
+            print('Warning: Need to apply correction to reposition Tx for',Correction)
+        #if yet we are not there, we need to stop
+        if np.max(self._TxRC['center'][:,2])>self._ZDim[self._ZSourceLocation]:
+            print("np.max(self._TxRC['center'][:,2]),self._ZDim[self._ZSourceLocation]",np.max(self._TxRC['center'][:,2]),self._ZDim[self._ZSourceLocation])
+            raise RuntimeError("The Tx limit in Z is below the location of the layer for source location for forward propagation.")
       
         #we apply an homogeneous pressure 
        

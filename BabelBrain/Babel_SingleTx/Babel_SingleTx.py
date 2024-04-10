@@ -28,7 +28,7 @@ from datetime import datetime
 import time
 import yaml
 from BabelViscoFDTD.H5pySimple import ReadFromH5py, SaveToH5py
-from .CalculateFieldProcess import CalculateFieldProcess
+from CalculateFieldProcess import CalculateFieldProcess
 from GUIComponents.ScrollBars import ScrollBars as WidgetScrollBars
 
 from _BabelBaseTx import BabelBaseTx
@@ -70,12 +70,14 @@ class SingleTx(BabelBaseTx):
         self.Widget =loader.load(ui_file, self)
         ui_file.close()
         self.Widget.IsppaScrollBars = WidgetScrollBars(parent=self.Widget.IsppaScrollBars,MainApp=self)
-        self.Widget.CalculatePlanningMask.clicked.connect(self.RunSimulation)
+        self.Widget.CalculateAcField.clicked.connect(self.RunSimulation)
         self.Widget.ZMechanicSpinBox.valueChanged.connect(self.UpdateTxInfo)
         self.Widget.DiameterSpinBox.valueChanged.connect(self.UpdateTxInfo)
         self.Widget.FocalLengthSpinBox.valueChanged.connect(self.UpdateTxInfo)
-        self.Widget.ShowWaterResultscheckBox.stateChanged.connect(self.UpdateAcResults)
         self.Widget.LabelTissueRemoved.setVisible(False)
+        self.Widget.CalculateMechAdj.clicked.connect(self.CalculateMechAdj)
+        self.Widget.CalculateMechAdj.setEnabled(False)
+        self.up_load_ui()
 
     def DefaultConfig(self,cfile='default.yaml'):
         #Specific parameters for the CTX500 - to be configured later via a yaml
@@ -85,7 +87,7 @@ class SingleTx(BabelBaseTx):
         self.Config=config
 
     def NotifyGeneratedMask(self):
-        VoxelSize=self._MainApp._DataMask.header.get_zooms()[0]
+        VoxelSize=self._MainApp._MaskData.header.get_zooms()[0]
         TargetLocation =np.array(np.where(self._MainApp._FinalMask==5.0)).flatten()
         LineOfSight=self._MainApp._FinalMask[TargetLocation[0],TargetLocation[1],:]
         StartSkin=np.where(LineOfSight>0)[0].min()
@@ -100,6 +102,7 @@ class SingleTx(BabelBaseTx):
             self.Widget.ZMechanicSpinBox.setValue(0.0) # Tx aligned at the target
         else:
             self.Widget.ZMechanicSpinBox.setValue(self._ZMaxSkin) #if negative, we push back the Tx as it can't go below this
+        self._UnmodifiedZMechanic = 0.0
         
     
     @Slot()
@@ -107,12 +110,19 @@ class SingleTx(BabelBaseTx):
         if self._bIgnoreUpdate:
             return
         self._bIgnoreUpdate=True
-        self.UpdateLimits()
         ZMec=self.Widget.ZMechanicSpinBox.value()
+        self.UpdateLimits()
         if ZMec > self.Widget.ZMechanicSpinBox.maximum():
-            self.ZMechanicSpinBox.setValue(self.Widget.ZMechanicSpinBox.maximum())
+            self.Widget.ZMechanicSpinBox.setValue(self.Widget.ZMechanicSpinBox.maximum())
             ZMec=self.Widget.ZMechanicSpinBox.maximum()
-        
+        if ZMec < self.Widget.ZMechanicSpinBox.minimum():
+            self.Widget.ZMechanicSpinBox.setValue(self.Widget.ZMechanicSpinBox.minimum())
+            ZMec=self.Widget.ZMechanicSpinBox.minimum()
+        self.UpdateDistanceLabels()
+        self._bIgnoreUpdate=False 
+
+    def UpdateDistanceLabels(self):
+        ZMec=self.Widget.ZMechanicSpinBox.value()
         CurDistance=self._ZMaxSkin-ZMec
         self.Widget.DistanceTxToSkinLabel.setText('%3.1f' %(CurDistance))
         if CurDistance<0:
@@ -121,8 +131,6 @@ class SingleTx(BabelBaseTx):
         else:
             self.Widget.DistanceTxToSkinLabel.setStyleSheet("color: blue")
             self.Widget.LabelTissueRemoved.setVisible(False)
-            
-        self._bIgnoreUpdate=False 
 
 
     def UpdateLimits(self):
@@ -132,18 +140,24 @@ class SingleTx(BabelBaseTx):
         ZMax=DOut-self.Widget.DistanceSkinLabel.property('UserData')
         self._ZMaxSkin = np.round(ZMax,1)
         self.Widget.ZMechanicSpinBox.setMaximum(self._ZMaxSkin+self.Config['MaxNegativeDistance'])
-      
-    @Slot()
-    def RunSimulation(self):
+        self.Widget.ZMechanicSpinBox.setMinimum(self._ZMaxSkin-self.Config['MaxDistanceToSkin'])
+        self.UpdateDistanceLabels()
+
+    def GetExtraSuffixAcFields(self):
         FocalLength = self.Widget.FocalLengthSpinBox.value()
         Diameter = self.Widget.DiameterSpinBox.value()
         extrasuffix='Foc%03.1f_Diam%03.1f_' %(FocalLength,Diameter)
+        return extrasuffix
+
+      
+    @Slot()
+    def RunSimulation(self):
+        extrasuffix=self.GetExtraSuffixAcFields()
         self._FullSolName=self._MainApp._prefix_path+extrasuffix+'DataForSim.h5' 
         self._WaterSolName=self._MainApp._prefix_path+extrasuffix+'Water_DataForSim.h5'
-        self._MainApp._BrainsightInput=self._MainApp._prefix_path+extrasuffix+'FullElasticSolution.nii.gz'
+        FocalLength = self.Widget.FocalLengthSpinBox.value()
+        Diameter = self.Widget.DiameterSpinBox.value()
 
-        print('FullSolName',self._FullSolName)
-        print('WaterSolName',self._WaterSolName)
         bCalcFields=False
         if os.path.isfile(self._FullSolName) and os.path.isfile(self._WaterSolName):
             Skull=ReadFromH5py(self._FullSolName)
@@ -163,13 +177,15 @@ class SingleTx(BabelBaseTx):
                 self.Widget.XMechanicSpinBox.setValue(Skull['TxMechanicalAdjustmentX']*1e3)
                 self.Widget.YMechanicSpinBox.setValue(Skull['TxMechanicalAdjustmentY']*1e3)
                 self.Widget.ZMechanicSpinBox.setValue(Skull['TxMechanicalAdjustmentZ']*1e3)
+                if 'zLengthBeyonFocalPoint' in Skull:
+                    self.Widget.MaxDepthSpinBox.setValue(Skull['zLengthBeyonFocalPoint']*1e3)
         else:
             bCalcFields = True
         self._bRecalculated = True
         if bCalcFields:
             self._MainApp.Widget.tabWidget.setEnabled(False)
             self.thread = QThread()
-            self.worker = RunAcousticSim(self._MainApp,self.thread,
+            self.worker = RunAcousticSim(self._MainApp,
                             extrasuffix,Diameter/1e3,FocalLength/1e3)
             self.worker.moveToThread(self.thread)
             self.thread.started.connect(self.worker.run)
@@ -183,17 +199,14 @@ class SingleTx(BabelBaseTx):
             self.worker.endError.connect(self.worker.deleteLater)
  
             self.thread.start()
+
+            self._MainApp.showClockDialog()
         else:
             self.UpdateAcResults()
 
-    def NotifyError(self):
-        msgBox = QMessageBox()
-        msgBox.setIcon(QMessageBox.Critical)
-        msgBox.setText("There was an error in execution -\nconsult log window for details")
-        msgBox.exec()
    
     def GetExport(self):
-        Export={}
+        Export=super(SingleTx,self).GetExport()
         for k in ['FocalLength','Diameter','XMechanic','YMechanic','ZMechanic']:
             Export[k]=getattr(self.Widget,k+'SpinBox').value()
         return Export
@@ -203,10 +216,9 @@ class RunAcousticSim(QObject):
     finished = Signal()
     endError = Signal()
 
-    def __init__(self,mainApp,thread,extrasuffix,Aperture,FocalLength):
+    def __init__(self,mainApp,extrasuffix,Aperture,FocalLength):
         super(RunAcousticSim, self).__init__()
         self._mainApp=mainApp
-        self._thread=thread
         self._extrasuffix=extrasuffix
         self._Aperture=Aperture
         self._FocalLength=FocalLength
@@ -215,7 +227,7 @@ class RunAcousticSim(QObject):
 
         deviceName=self._mainApp.Config['ComputingDevice']
         COMPUTING_BACKEND=self._mainApp.Config['ComputingBackend']
-        basedir,ID=os.path.split(os.path.split(self._mainApp.Config['T1W'])[0])
+        basedir,ID=os.path.split(os.path.split(self._mainApp.Config['T1WIso'])[0])
         basedir+=os.sep
         Target=[self._mainApp.Config['ID']+'_'+self._mainApp.Config['TxSystem']]
 
@@ -251,13 +263,18 @@ class RunAcousticSim(QObject):
         kargs['Frequencies']=Frequencies
         kargs['zLengthBeyonFocalPointWhenNarrow']=self._mainApp.AcSim.Widget.MaxDepthSpinBox.value()/1e3
         kargs['bUseCT']=self._mainApp.Config['bUseCT']
+        kargs['bUseRayleighForWater']=self._mainApp.Config['bUseRayleighForWater']
+        kargs['bPETRA'] = False
+        if kargs['bUseCT']:
+            if self._mainApp.Config['CTType']==3:
+                kargs['bPETRA']=True
 
         # Start mask generation as separate process.
         bNoError=True
         queue=Queue()
         T0=time.time()
         fieldWorkerProcess = Process(target=CalculateFieldProcess, 
-                                    args=(queue,Target),
+                                    args=(queue,Target,self._mainApp.Config['TxSystem']),
                                     kwargs=kargs)
         fieldWorkerProcess.start()      
         # progress.
@@ -276,10 +293,12 @@ class RunAcousticSim(QObject):
                 bNoError=False
         if bNoError:
             TEnd=time.time()
-            print('Total time',TEnd-T0)
+            TotalTime = TEnd-T0
+            print('Total time',TotalTime)
             print("*"*40)
             print("*"*5+" DONE ultrasound simulation.")
             print("*"*40)
+            self._mainApp.UpdateComputationalTime('ultrasound',TotalTime)
             self.finished.emit()
         else:
             print("*"*40)

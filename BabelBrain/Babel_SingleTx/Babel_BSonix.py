@@ -28,7 +28,7 @@ from datetime import datetime
 import time
 import yaml
 from BabelViscoFDTD.H5pySimple import ReadFromH5py, SaveToH5py
-from .CalculateFieldProcess import CalculateFieldProcess
+from CalculateFieldProcess import CalculateFieldProcess
 from GUIComponents.ScrollBars import ScrollBars as WidgetScrollBars
 
 from .Babel_SingleTx import SingleTx,RunAcousticSim
@@ -64,11 +64,13 @@ class BSonix(SingleTx):
         ui_file.close()
 
         self.Widget.IsppaScrollBars = WidgetScrollBars(parent=self.Widget.IsppaScrollBars,MainApp=self)
-        self.Widget.CalculatePlanningMask.clicked.connect(self.RunSimulation)
+        self.Widget.CalculateAcField.clicked.connect(self.RunSimulation)
         self.Widget.ZMechanicSpinBox.valueChanged.connect(self.UpdateTxInfo)
-        self.Widget.ShowWaterResultscheckBox.stateChanged.connect(self.UpdateAcResults)
         self.Widget.TransducerModelcomboBox.currentIndexChanged.connect(self.UpdateTxInfo)
         self.Widget.LabelTissueRemoved.setVisible(False)
+        self.Widget.CalculateMechAdj.clicked.connect(self.CalculateMechAdj)
+        self.Widget.CalculateMechAdj.setEnabled(False)
+        self.up_load_ui()
         
         
     def DefaultConfig(self,cfile='defaultBSonix.yaml'):
@@ -89,15 +91,23 @@ class BSonix(SingleTx):
         ZMax=DOut-self.Widget.DistanceSkinLabel.property('UserData')
         self._ZMaxSkin = np.round(ZMax,1)
         self.Widget.ZMechanicSpinBox.setMaximum(self._ZMaxSkin+self.Config['MaxNegativeDistance'])
+        self.Widget.ZMechanicSpinBox.setMinimum(self._ZMaxSkin-self.Config['MaxDistanceToSkin'])
+        self.UpdateDistanceLabels()
+
+    def GetExtraSuffixAcFields(self):
+        #By default, it returns empty string, useful when dealing with user-specified geometry
+        model=self.GetTxModel()
+        return model+'_'
+
 
     @Slot()
     def RunSimulation(self):
+        extrasuffix=self.GetExtraSuffixAcFields()
         model=self.GetTxModel()
         FocalLength = self.Config[model]['TxFoc']*1e3
         Diameter = self.Config[model]['TxDiam']*1e3
         self._FullSolName=self._MainApp._prefix_path+model+'_DataForSim.h5' 
         self._WaterSolName=self._MainApp._prefix_path+model+'_Water_DataForSim.h5' 
-        extrasuffix=model+'_'
         print('FullSolName',self._FullSolName)
         print('WaterSolName',self._WaterSolName)
         bCalcFields=False
@@ -117,13 +127,15 @@ class BSonix(SingleTx):
                 self.Widget.XMechanicSpinBox.setValue(Skull['TxMechanicalAdjustmentX']*1e3)
                 self.Widget.YMechanicSpinBox.setValue(Skull['TxMechanicalAdjustmentY']*1e3)
                 self.Widget.ZMechanicSpinBox.setValue(Skull['TxMechanicalAdjustmentZ']*1e3)
+                if 'zLengthBeyonFocalPoint' in Skull:
+                    self.Widget.MaxDepthSpinBox.setValue(Skull['zLengthBeyonFocalPoint']*1e3)
         else:
             bCalcFields = True
         self._bRecalculated = True
         if bCalcFields:
             self._MainApp.Widget.tabWidget.setEnabled(False)
             self.thread = QThread()
-            self.worker = RunAcousticSim(self._MainApp,self.thread,
+            self.worker = RunAcousticSim(self._MainApp,
                                         extrasuffix,Diameter/1e3,FocalLength/1e3)
             self.worker.moveToThread(self.thread)
             self.thread.started.connect(self.worker.run)
@@ -137,6 +149,7 @@ class BSonix(SingleTx):
             self.worker.endError.connect(self.worker.deleteLater)
  
             self.thread.start()
+            self._MainApp.showClockDialog()
         else:
             self.UpdateAcResults()
 

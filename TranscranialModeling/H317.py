@@ -1,22 +1,10 @@
-from re import S
+
 import numpy as np
-#from mkl_fft import fft
-from numpy.fft import fft
 from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d.axes3d import Axes3D
-from  scipy.io import loadmat
-from BabelViscoFDTD.tools.RayleighAndBHTE import ForwardSimple, InitCuda, InitOpenCL , GenerateFocusTx,SpeedofSoundWater
-from BabelViscoFDTD.PropagationModel import PropagationModel
-from BabelViscoFDTD.H5pySimple import SaveToH5py, ReadFromH5py
-from pprint import pprint
-from scipy.io import loadmat
-from sys import platform
-from time import time
+from BabelViscoFDTD.tools.RayleighAndBHTE import GenerateFocusTx,SpeedofSoundWater
 import os
 
-PModel=PropagationModel()
-import gc
-import time
 
 extlay={}
 TemperatureWater=37.0
@@ -43,7 +31,7 @@ def computeH317Geometry(bDoRunDeepSanityTest=False,ToleranceDistance=9.5,FocalDi
             #we calculate the Euclidean distance 
             DistanceToOtherElements=np.linalg.norm(RestTx-np.repeat(SelElem,127,axis=0),axis=1)
             NormalizedDistance=DistanceToOtherElements/FocalDistance
-            #the angular distance between the tx elements is straighforward
+            #the angular distance between the tx elements is straightforward
             AngularDistance=2*np.arcsin(NormalizedDistance/2.0)
             
             assert(AngularDistance.size==127)
@@ -71,7 +59,7 @@ def GenerateH317Tx(Frequency=700e3,RotationZ=0,FactorEnlarge=1):
     Diameter=9.5e-3*FactorEnlarge
 
     #%This is the indiv tx element
-    TxElem=GenerateFocusTx(f,Foc,Diameter,extlay['c'])
+    TxElem=GenerateFocusTx(f,Foc,Diameter,extlay['c'],PPWSurface=8)
 
     # fig = plt.figure()
     # ax = Axes3D(fig)

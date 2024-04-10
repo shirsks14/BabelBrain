@@ -1,47 +1,30 @@
 # This Python file uses the following encoding: utf-8
+# This Python file uses the following encoding: utf-8
 from multiprocessing import Process,Queue
 import os
 from pathlib import Path
 import sys
-
-from PySide6.QtWidgets import (QApplication, QWidget,QGridLayout,
-                QHBoxLayout,QVBoxLayout,QLineEdit,QDialog,
-                QGridLayout, QSpacerItem, QInputDialog, QFileDialog,
-                QErrorMessage, QMessageBox)
-from PySide6.QtCore import QFile,Slot,QObject,Signal,QThread
-from PySide6.QtUiTools import QUiLoader
-from PySide6.QtGui import QPalette, QTextCursor
-
-import numpy as np
-
-from scipy.io import loadmat
-from matplotlib.pyplot import cm
-import matplotlib.pyplot as plt
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_qtagg import (
-    FigureCanvas,NavigationToolbar2QT)
-
-#import cv2 as cv
-import os
-import sys
-import shutil
-from datetime import datetime
-import time
+import platform
 import yaml
-from BabelViscoFDTD.H5pySimple import ReadFromH5py, SaveToH5py
-from GUIComponents.ScrollBars import ScrollBars as WidgetScrollBars
+from _BabelBasePhasedArray import BabelBasePhaseArray
 
-from .CalculateFieldProcess import CalculateFieldProcess
 
-from _BabelBaseTx import BabelBaseTx
+_IS_MAC = platform.system() == 'Darwin'
+def resource_path():  # needed for bundling
+    """Get absolute path to resource, works for dev and for PyInstaller"""
+    if not _IS_MAC:
+        return os.path.split(Path(__file__))[0]
 
-class H317(BabelBaseTx):
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        bundle_dir = Path(sys._MEIPASS) / 'Babel_H317'
+    else:
+        bundle_dir = Path(__file__).parent
+
+    return bundle_dir
+
+class H317(BabelBasePhaseArray):
     def __init__(self,parent=None,MainApp=None):
-        super(H317, self).__init__(parent)
-        self.static_canvas=None
-        self._MainApp=MainApp
-        self.DefaultConfig()
-        self.load_ui()
+        super().__init__(parent=parent,MainApp=MainApp,formfile=os.path.join(resource_path(), "form.ui"))
 
 
     def load_ui(self):
@@ -96,7 +79,7 @@ class H317(BabelBaseTx):
         self.Widget.ZMechanicSpinBox.setEnabled(not bRefocus)
 
     def DefaultConfig(self):
-        #Specific parameters for the H317 - to be configured later via a yaml
+        #Specific parameters for the H317 -  configured later via a yaml
 
         with open(os.path.join(os.path.dirname(os.path.realpath(__file__)),'default.yaml'), 'r') as file:
             config = yaml.safe_load(file)

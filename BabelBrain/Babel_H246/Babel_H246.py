@@ -28,7 +28,7 @@ from datetime import datetime
 import time
 import yaml
 from BabelViscoFDTD.H5pySimple import ReadFromH5py, SaveToH5py
-from .CalculateFieldProcess import CalculateFieldProcess
+from CalculateFieldProcess import CalculateFieldProcess
 from GUIComponents.ScrollBars import ScrollBars as WidgetScrollBars
 
 from _BabelBaseTx import BabelBaseTx
@@ -72,13 +72,32 @@ class H246(BabelBaseTx):
         self.Widget.TPODistanceSpinBox.setMaximum(self.Config['MaximalTPODistance']*1e3)
         self.Widget.TPODistanceSpinBox.valueChanged.connect(self.TPODistanceUpdate)
         self.Widget.TPORangeLabel.setText('[%3.1f - %3.1f]' % (self.Config['MinimalTPODistance']*1e3,self.Config['MaximalTPODistance']*1e3))
-        self.Widget.CalculatePlanningMask.clicked.connect(self.RunSimulation)
-        self.Widget.ShowWaterResultscheckBox.stateChanged.connect(self.UpdateAcResults)
+        self.Widget.ZMechanicSpinBox.setMaximum(self.Config['MaxNegativeDistance'])
+        self.Widget.ZMechanicSpinBox.setMinimum(-self.Config['MaxDistanceToSkin'])  
+        self.Widget.ZMechanicSpinBox.valueChanged.connect(self.UpdateDistanceFromSkin)
+        self.Widget.CalculateAcField.clicked.connect(self.RunSimulation)
+        self.Widget.LabelTissueRemoved.setVisible(False)
+        self.Widget.CalculateMechAdj.clicked.connect(self.CalculateMechAdj)
+        self.Widget.CalculateMechAdj.setEnabled(False)
+        self.up_load_ui()
+        
+        
+    @Slot()
+    def UpdateDistanceFromSkin(self):
+        self._bIgnoreUpdate=True
+        ZMec=self.Widget.ZMechanicSpinBox.value()
+        DistanceSkin=self.Widget.DistanceSkinLabel.property('UserData')
+        self.Widget.DistanceSkinLabel.setText('%3.1f' %(DistanceSkin-ZMec))
+        if ZMec>0:
+            self.Widget.DistanceSkinLabel.setStyleSheet("color: red")
+            self.Widget.LabelTissueRemoved.setVisible(True)
+        else:
+            self.Widget.DistanceSkinLabel.setStyleSheet("color: blue")
+            self.Widget.LabelTissueRemoved.setVisible(False) 
 
     @Slot()
     def TPODistanceUpdate(self,value):
         self._ZSteering =self.Widget.TPODistanceSpinBox.value()/1e3
-        print('ZSteering',self._ZSteering*1e3)
 
     def DefaultConfig(self):
         #Specific parameters for the H246 - to be configured later via a yaml
@@ -92,7 +111,7 @@ class H246(BabelBaseTx):
         self.Config=config
 
     def NotifyGeneratedMask(self):
-        VoxelSize=self._MainApp._DataMask.header.get_zooms()[0]
+        VoxelSize=self._MainApp._MaskData.header.get_zooms()[0]
         TargetLocation =np.array(np.where(self._MainApp._FinalMask==5.0)).flatten()
         LineOfSight=self._MainApp._FinalMask[TargetLocation[0],TargetLocation[1],:]
         StartSkin=np.where(LineOfSight>0)[0].min()
@@ -103,6 +122,7 @@ class H246(BabelBaseTx):
         self.Widget.DistanceSkinLabel.setProperty('UserData',DistanceFromSkin)
 
         self.TPODistanceUpdate(0)
+    
 
     @Slot()
     def RunSimulation(self):
@@ -117,7 +137,7 @@ class H246(BabelBaseTx):
             TPO=Skull['ZSteering']
 
             ret = QMessageBox.question(self,'', "Acoustic sim files already exist with:.\n"+
-                                    "ZSteering=%3.2f\n" %(TPO*1e3)+
+                                    "TPO distance=%3.2f\n" %(TPO*1e3)+
                                     "TxMechanicalAdjustmentX=%3.2f\n" %(Skull['TxMechanicalAdjustmentX']*1e3)+
                                     "TxMechanicalAdjustmentY=%3.2f\n" %(Skull['TxMechanicalAdjustmentY']*1e3)+
                                     "Do you want to recalculate?\nSelect No to reload",
@@ -129,13 +149,15 @@ class H246(BabelBaseTx):
                 self.Widget.TPODistanceSpinBox.setValue(TPO*1e3)
                 self.Widget.XMechanicSpinBox.setValue(Skull['TxMechanicalAdjustmentX']*1e3)
                 self.Widget.YMechanicSpinBox.setValue(Skull['TxMechanicalAdjustmentY']*1e3)
+                if 'zLengthBeyonFocalPoint' in Skull:
+                    self.Widget.MaxDepthSpinBox.setValue(Skull['zLengthBeyonFocalPoint']*1e3)
         else:
             bCalcFields = True
         self._bRecalculated = True
         if bCalcFields:
             self._MainApp.Widget.tabWidget.setEnabled(False)
             self.thread = QThread()
-            self.worker = RunAcousticSim(self._MainApp,self.thread)
+            self.worker = RunAcousticSim(self._MainApp)
             self.worker.moveToThread(self.thread)
             self.thread.started.connect(self.worker.run)
             self.worker.finished.connect(self.UpdateAcResults)
@@ -148,17 +170,13 @@ class H246(BabelBaseTx):
             self.worker.endError.connect(self.worker.deleteLater)
  
             self.thread.start()
+            self._MainApp.showClockDialog()
         else:
             self.UpdateAcResults()
 
-    def NotifyError(self):
-        msgBox = QMessageBox()
-        msgBox.setIcon(QMessageBox.Critical)
-        msgBox.setText("There was an error in execution -\nconsult log window for details")
-        msgBox.exec()
    
     def GetExport(self):
-        Export={}
+        Export=super(H246,self).GetExport()
         for k in ['TPODistance','XMechanic','YMechanic']:
             Export[k]=getattr(self.Widget,k+'SpinBox').value()
         return Export
@@ -168,16 +186,15 @@ class RunAcousticSim(QObject):
     finished = Signal()
     endError = Signal()
 
-    def __init__(self,mainApp,thread):
+    def __init__(self,mainApp):
         super(RunAcousticSim, self).__init__()
         self._mainApp=mainApp
-        self._thread=thread
 
     def run(self):
 
         deviceName=self._mainApp.Config['ComputingDevice']
         COMPUTING_BACKEND=self._mainApp.Config['ComputingBackend']
-        basedir,ID=os.path.split(os.path.split(self._mainApp.Config['T1W'])[0])
+        basedir,ID=os.path.split(os.path.split(self._mainApp.Config['T1WIso'])[0])
         basedir+=os.sep
         Target=[self._mainApp.Config['ID']+'_'+self._mainApp.Config['TxSystem']]
 
@@ -200,6 +217,9 @@ class RunAcousticSim(QObject):
 
         Frequencies = [self._mainApp.Widget.USMaskkHzDropDown.property('UserData')]
         basePPW=[self._mainApp.Widget.USPPWSpinBox.property('UserData')]
+        ZIntoSkin =0.0
+        if TxMechanicalAdjustmentZ > 0:
+            ZIntoSkin = np.abs(TxMechanicalAdjustmentZ)
         T0=time.time()
         kargs={}
         kargs['ID']=ID
@@ -214,11 +234,16 @@ class RunAcousticSim(QObject):
         kargs['Frequencies']=Frequencies
         kargs['zLengthBeyonFocalPointWhenNarrow']=self._mainApp.AcSim.Widget.MaxDepthSpinBox.value()/1e3
         kargs['bUseCT']=self._mainApp.Config['bUseCT']
-        
+        kargs['bUseRayleighForWater']=self._mainApp.Config['bUseRayleighForWater']
+        kargs['bPETRA'] = False
+        kargs['ZIntoSkin'] = ZIntoSkin
+        if kargs['bUseCT']:
+            if self._mainApp.Config['CTType']==3:
+                kargs['bPETRA']=True
         # Start mask generation as separate process.
         queue=Queue()
         fieldWorkerProcess = Process(target=CalculateFieldProcess, 
-                                    args=(queue,Target),
+                                    args=(queue,Target,self._mainApp.Config['TxSystem']),
                                     kwargs=kargs)
         fieldWorkerProcess.start()      
         # progress.
@@ -239,10 +264,12 @@ class RunAcousticSim(QObject):
                 bNoError=False
         if bNoError:
             TEnd=time.time()
-            print('Total time',TEnd-T0)
+            TotalTime = TEnd-T0
+            print('Total time',TotalTime)
             print("*"*40)
             print("*"*5+" DONE ultrasound simulation.")
             print("*"*40)
+            self._mainApp.UpdateComputationalTime('ultrasound',TotalTime)
             self.finished.emit()
         else:
             print("*"*40)

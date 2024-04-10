@@ -20,8 +20,8 @@ import SimpleITK as sitk
 import nibabel
 import numpy as np
 import yaml
-from PySide6.QtCore import QFile, QObject, QThread, Qt, Signal, Slot
-from PySide6.QtGui import QIcon, QPalette, QTextCursor
+from PySide6.QtCore import QFile, QObject, QThread, Qt, Signal, Slot, QTimer
+from PySide6.QtGui import QIcon, QPalette, QTextCursor, QMovie
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import (
     QApplication,
@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
     QSizePolicy,
     QVBoxLayout,
     QWidget,
+    QLabel
 )
 from linetimer import CodeTimer
 from matplotlib import pyplot as plt
@@ -50,11 +51,12 @@ from ConvMatTransform import (
     BSight_to_itk,
     GetIDTrajectoryBrainsight,
     ReadTrajectoryBrainsight,
+    GetBrainSightHeader,
     itk_to_BSight,
     templateSlicer,
     read_itk_affine_transform,
 )
-from SelFiles.SelFiles import SelFiles
+from SelFiles.SelFiles import SelFiles,ValidThermalProfile
 
 
 multiprocessing.freeze_support()
@@ -113,6 +115,14 @@ def get_text_values(initial_texts, parent=None, title="", label=""):
 
 ###################################################################
 
+ReturnCodes={}
+ReturnCodes['SUCCES']=0
+ReturnCodes['CANCEL_OR_INCOMPLETE']=1
+ReturnCodes['ERROR_DOMAIN']=2
+ReturnCodes['ERROR_ACOUSTICS']=3
+
+##########################
+
 class OutputWrapper(QObject):
     outputWritten = Signal(object, object)
 
@@ -158,21 +168,14 @@ def GetLatestSelection():
                 print('Unable to load previous selection')
                 print(e)
                 res=None
-        try:
-            if res is not None:
-                if not os.path.isdir(res['simbnibs_path']) or not os.path.isfile(res['T1W']) or not os.path.isfile(res['Mat4Trajectory'])\
-                or not os.path.isfile(res['ThermalProfile']):
-                    print('Ignoring config as files and dir may not exist anymore\n',res)
-                    res=None
-        except:
-            res = None
     return res
 
 def GetInputFromBrainsight():
     res=None
-    PathMat4Trajectory  = BabelBrain._BrainsightSyncPath + os.sep +'Input_Target.txt'
-    PathT1W             = BabelBrain._BrainsightSyncPath + os.sep +'Input_Anatomical.txt'
-    Pathsimbnibs_path   = BabelBrain._BrainsightSyncPath + os.sep +'Input_SegmentationsPath.txt'
+    PathMat4Trajectory  = _BrainsightSyncPath + os.sep +'Input_Target.txt'
+    PathT1W             = _BrainsightSyncPath + os.sep +'Input_Anatomical.txt'
+    Pathsimbnibs_path   = _BrainsightSyncPath + os.sep +'Input_SegmentationsPath.txt'
+    PathToSaveResults   = _BrainsightSyncPath + os.sep +'SimulationOutputPath.txt'
 
 
     if os.path.isfile(PathMat4Trajectory) and \
@@ -183,10 +186,64 @@ def GetInputFromBrainsight():
             l=f.readlines()[0].strip()
         res['T1W']=l
 
+        res['outputfiles_path']=None
+
+        if os.path.isfile(PathToSaveResults):
+            with open (PathToSaveResults,'r') as f:
+                l=f.readlines()[0].strip()
+            if len(l)>0:
+                res['outputfiles_path']=l   
+
         ID=GetIDTrajectoryBrainsight(PathMat4Trajectory)
+        header =  GetBrainSightHeader(PathMat4Trajectory)
+        if header['Version']=='13':
+            # EndWithError("Version 13 of export trajectory not supported.\nEnding BabelBrain execution")
+            pass
+        else:
+            if header['Version']!='14':
+                msgBox = QMessageBox()
+                msgBox.setIcon(QMessageBox.Warning)
+                msgBox.setText("Version of export trajectory not officially supported.\nBabelBrain will continue but issues may occur")
+                msgBox.exec()
+            if 'NIfTI' not in header['Coordinate system']:
+                EndWithError("BabelBrain only supports Nifti convention for trajectory")
+            InputT1 = nibabel.load(res['T1W'])
+            qformcode=int(InputT1.header['qform_code'])
+            sformcode=int(InputT1.header['sform_code'])
+            bValidT1W=False
+            #we validate agreement between header of Brainsight trajectory and qform and sform codes in the Nifti file
+            if header['Coordinate system'] == 'NIfTI:Q:Scanner':
+                bValidT1W = qformcode==1
+            elif header['Coordinate system'] == 'NIfTI:Q:Aligned':
+                bValidT1W = qformcode==2
+            elif header['Coordinate system'] == 'NIfTI:Q:MNI-152':
+                bValidT1W = qformcode==3
+            elif header['Coordinate system'] == 'NIfTI:Q:Talairach':
+                bValidT1W = qformcode==4
+            elif header['Coordinate system'] == 'NIfTI:Q:Other-Template':
+                bValidT1W = qformcode==5
+            elif header['Coordinate system'] == 'NIfTI:S:Scanner':
+                bValidT1W = sformcode==1 
+            elif header['Coordinate system'] == 'NIfTI:S:Aligned':
+                bValidT1W = sformcode==2 
+            elif header['Coordinate system'] == 'NIfTI:S:MNI-152':
+                bValidT1W = sformcode==3 
+            elif header['Coordinate system'] == 'NIfTI:S:Talairach':
+                bValidT1W = sformcode==4 
+            elif header['Coordinate system'] == 'NIfTI:S:Other-Template':
+                bValidT1W = sformcode==5 
+            if not bValidT1W:
+                EndWithError("Header coordinate system ("+header['Coordinate system'] +") does not match T1W Nifti header\n qformcode and sformcode [%i,%i]" %(qformcode,sformcode))
+                        
+
+        if res['outputfiles_path'] is not None:
+            outpath = res['outputfiles_path'] 
+        else:
+            outpath = os.path.dirname(res['T1W']) #+ os.sep + 'Babel' + os.sep + ID 
+        
         
         #for the time being, we need the trajectory to be next to T1w
-        RPath=os.path.split(res['T1W'])[0]+os.sep+ID+'.txt'
+        RPath=outpath+os.sep+ID+'.txt'
         assert(shutil.copyfile(PathMat4Trajectory,RPath))
 
         print('ID,RPath',ID,RPath)
@@ -197,26 +254,62 @@ def GetInputFromBrainsight():
             l=f.readlines()[0].strip()
         res['simbnibs_path']=l
         
+         
+        
         if not os.path.isdir(res['simbnibs_path']) or not os.path.isfile(res['T1W']) or not os.path.isfile(res['Mat4Trajectory']):
                 print('Ignoring Brainsight config as files and dir may not exist anymore\n',res)
                 res=None
-    return res
+    else:
+        EndWithError("Incomplete Brainsight input files at\n" + BabelBrain._BrainsightSyncPath)
 
+    ofiles =[_BrainsightSyncPath+ os.sep+'Output.txt',
+            _BrainsightSyncPath+ os.sep+'Output_TargetModified.txt',
+            _BrainsightSyncPath+ os.sep+'Output_Thermal.txt']
+    for fpath in ofiles:
+        if os.path.isfile(fpath):
+            os.remove(fpath)
+        
+    return res,header
+
+def EndWithError(msg):
+        msgBox = QMessageBox()
+        msgBox.setIcon(QMessageBox.Critical)
+        msgBox.setText(msg)
+        msgBox.exec()
+        raise SystemError(msg)
+    
 ########################
+class ClockDialog(QDialog):
+    def __init__(self, parent=None):
+        super(ClockDialog,self).__init__(parent)
+        self.initUI()
+
+    def initUI(self):
+        self.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint)
+        self.setModal(False)
+
+        self.label = QLabel(self)
+        self.movie = QMovie( os.path.join(resource_path(),'icons8-hourglass.gif'))
+        self.label.setMovie(self.movie)
+        self.movie.start()
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.label)
+        self.setLayout(layout)
+
+_BrainsightSyncPath = str(Path.home()) + os.sep + '.BabelBrainSync'
+
+######################
 class BabelBrain(QWidget):
     '''
     Main LIFU Control application
 
     '''
 
-    _BrainsightSyncPath: str = str(Path.home()) + os.sep + '.BabelBrainSync'
-
-    def __init__(self,widget,bInUseWithBrainsight=False):
+    def __init__(self,widget,bInUseWithBrainsight=False,AltOutputFilesPath=None):
         super(BabelBrain, self).__init__()
         #This file will store the last config selected
 
-        self._bInUseWithBrainsight=bInUseWithBrainsight #this will be use to sync input and output with Brainsight
-        
         simbnibs_path=widget.ui.SimbNIBSlineEdit.text()
         T1W=widget.ui.T1WlineEdit.text()
         CT_or_ZTE_input=widget.ui.CTlineEdit.text()
@@ -244,6 +337,7 @@ class BabelBrain(QWidget):
         elif Backend=='Metal':
             ComputingBackend=3
 
+        self.Config['bUseRayleighForWater']= True
         self.Config['ComputingBackend']=ComputingBackend
         self.Config['ComputingDevice']=ComputingDevice
         self.Config['TxSystem']=widget.ui.TransducerTypecomboBox.currentText()
@@ -260,13 +354,51 @@ class BabelBrain(QWidget):
         self.Config['CoregCT_MRI']=widget.ui.CoregCTcomboBox.currentIndex()
         self.Config['CT_or_ZTE_input']=CT_or_ZTE_input
         self.Config['ID'] = os.path.splitext(os.path.split(self.Config['Mat4Trajectory'])[1])[0]
-        self.Config['T1WIso']= self.Config['T1W'].replace('.nii.gz','-isotropic.nii.gz')
+
+        #filenames when saving results for Brainsight
+        self.Config['bInUseWithBrainsight']= bInUseWithBrainsight #this will be use to sync input and output with Brainsight
+        self.Config['BrainsightSyncPath']  = _BrainsightSyncPath
+        self.Config['Brainsight-Output']   = _BrainsightSyncPath+ os.sep+'Output.txt'
+        self.Config['Brainsight-Target']   = _BrainsightSyncPath+ os.sep+'Output_TargetModified.txt'
+        self.Config['Brainsight-ThermalOutput']  = _BrainsightSyncPath+ os.sep+'Output_Thermal.txt'
+
+        if bInUseWithBrainsight:
+            #if we are running from Brainsight
+            for k in ['Brainsight-Output','Brainsight-Target','Brainsight-ThermalOutput']:
+                fpath = self.Config[k]
+                if os.path.isfile(fpath):
+                    os.remove(fpath)
+
+        if AltOutputFilesPath is not None:
+            self.Config['OutputFilesPath']=AltOutputFilesPath
+        else:
+            self.Config['OutputFilesPath']=os.path.dirname(self.Config['T1W'])#+os.sep+'Babel'+os.sep+self.Config['ID']
+
         
+        self.Config['T1WIso']= self.Config['OutputFilesPath']+os.sep+os.path.split(self.Config['T1W'])[1].replace('.nii.gz','-isotropic.nii.gz')
+        with open(os.path.join(resource_path(),'version.txt'), 'r') as f:
+            self.Config['version'] =f.readlines()[0]
+
+        self.Config['MultiPoint']=''
+        self.Config['EnableMultiPoint']=False
+        if widget.ui.MultiPointTypecomboBox.currentIndex()==1:
+            self.Config['EnableMultiPoint']=True    
+            self.Config['MultiPoint']=widget.ui.MultiPointlineEdit.text()
 
         self.SaveLatestSelection()
 
-
         self.load_ui()
+        #in case of multipoint , we prepared 
+        if len(self.Config['MultiPoint'].strip())>0 and\
+            self.Config['EnableMultiPoint']:
+            with open(self.Config['MultiPoint'],'r') as f:
+                profile=yaml.safe_load(f)
+            for n in range(len(profile['MultiPoint'])):
+                #we convert to mm
+                for k in ['X','Y','Z']:
+                    profile['MultiPoint'][n][k]=profile['MultiPoint'][n][k] * 1e-3 #in mm
+            self.AcSim.EnableMultiPoint(profile['MultiPoint'])
+            self.ThermalSim.EnableMultiPoint()
         self.InitApplication()
         self.static_canvas=None
 
@@ -276,6 +408,42 @@ class BabelBrain(QWidget):
         plt.rcParams['axes.labelcolor'] = FIGTEXTCOLOR
         plt.rcParams['xtick.color'] = FIGTEXTCOLOR
         plt.rcParams['ytick.color'] = FIGTEXTCOLOR
+
+        self._WorkingDialog = ClockDialog(self)
+        self.moveTimer = QTimer(self)
+        self.moveTimer.setSingleShot(True)
+        self.moveTimer.timeout.connect(self.centerClockDialog)
+        self.moveTimer.setInterval(500) 
+
+        self.RETURN_CODE = ReturnCodes['CANCEL_OR_INCOMPLETE']
+
+        self._TrackingTime={'Calculation time domain':0.0,
+                            'Calculation time ultrasound':0.0,
+                            'Calculation time thermal':0.0}
+
+    def showClockDialog(self):
+        self.centerClockDialog()
+        # Show the dialog
+        self._WorkingDialog.show()
+
+    def hideClockDialog(self):
+        self._WorkingDialog.hide()
+
+    def centerClockDialog(self):
+        # Calculate and set the new position for the dialog
+        mainWindowCenter = self.geometry().center()
+        dialogWidth = self._WorkingDialog.width()
+        dialogHeight = self._WorkingDialog.height()
+        self._WorkingDialog.move(
+            mainWindowCenter.x() - 50,
+            mainWindowCenter.y() - 50
+        )
+
+    def moveEvent(self, event):
+        super().moveEvent(event)
+        # Re-center the dialog when the main window moves
+        if self._WorkingDialog.isVisible():
+            self.moveTimer.start() # the timer will make the move of the wait dialog less clunky
 
     def SaveLatestSelection(self):
         if not os.path.isfile(_LastSelConfig):
@@ -317,10 +485,16 @@ class BabelBrain(QWidget):
             from Babel_H246.Babel_H246 import H246 as WidgetAcSim
         elif self.Config['TxSystem'] =='BSonix':
             from Babel_SingleTx.Babel_BSonix import BSonix as WidgetAcSim
+        elif self.Config['TxSystem'] =='REMOPD':
+            from Babel_REMOPD.Babel_REMOPD import REMOPD as WidgetAcSim
+        elif self.Config['TxSystem'] =='I12378':
+            from Babel_I12378.Babel_I12378 import I12378 as WidgetAcSim
+        elif self.Config['TxSystem'] =='ATAC':
+            from Babel_ATAC.Babel_ATAC import ATAC as WidgetAcSim
         else:
-            self.EndWithError("TX system " + self.Config['TxSystem'] + " is not yet supported")
+            EndWithError("TX system " + self.Config['TxSystem'] + " is not yet supported")
 
-        from Babel_Thermal_SingleFocus.Babel_Thermal import Babel_Thermal as WidgetThermal
+        from Babel_Thermal.Babel_Thermal import Babel_Thermal as WidgetThermal
 
         new_tab = WidgetAcSim(parent=self.Widget.tabWidget,MainApp=self)
         grid_tab = QGridLayout(new_tab)
@@ -348,18 +522,20 @@ class BabelBrain(QWidget):
         LayRange.addWidget(slider)
         self.Widget.ZTERangeSlider=slider
         self.Widget.setStyleSheet("QTabBar::tab::disabled {width: 0; height: 0; margin: 0; padding: 0; border: none;} ")
+        print("self.Config['CTType']",self.Config['CTType'])
         if self.Config['bUseCT'] == False:
             self.Widget.CTZTETabs.hide()
-        elif self.Config['CTType']!=2:
+        elif self.Config['CTType'] not in [2,3]:
             self.Widget.CTZTETabs.setTabEnabled(0,False)
+        elif self.Config['CTType']==3: #PETRA, we change the label
+            self.Widget.CTZTETabs.setTabText(0,"PETRA")
+            ZTE.findChild(QLabel,"RangeLabel").setText("Normalized PETRA Range")
         self.Widget.HUTreshold=self.Widget.CTZTETabs.widget(1).findChildren(QDoubleSpinBox)[0]
 
         # self.Widget.TransparencyScrollBar.sliderReleased.connect(self.UpdateTransparency)
         self.Widget.TransparencyScrollBar.valueChanged.connect(self.UpdateTransparency)
         self.Widget.TransparencyScrollBar.setEnabled(False)
-
-        
-        
+        self.Widget.HideMarkscheckBox.stateChanged.connect(self.HideMarks)
     
     @Slot()
     def handleOutput(self, text, stdout):
@@ -385,13 +561,7 @@ class BabelBrain(QWidget):
             sel=self.Widget.USMaskkHzDropDown.findText('500')
             self.Widget.USMaskkHzDropDown.setCurrentIndex(sel)
 
-        with open(os.path.join(resource_path(),'version.txt'), 'r') as f:
-            version=f.readlines()[0]
-        self.setWindowTitle('BabelBrain V'+version +' - ' + self.Config['ID'] + ' - ' + self.Config['TxSystem'] +
-                            ' - ' + os.path.split(self.Config['ThermalProfile'])[1].split('.yaml')[0])
-        self.Widget.IDLabel.setText(self.Config['ID'])
-        self.Widget.TXLabel.setText(self.Config['TxSystem'])
-        self.Widget.ThermalProfileLabel.setText(os.path.split(self.Config['ThermalProfile'])[1].split('.yaml')[0])
+        self.UpdateWindowTitle()
 
         #we connect callbacks
         self.Widget.CalculatePlanningMask.clicked.connect(self.GenerateMask)
@@ -409,6 +579,31 @@ class BabelBrain(QWidget):
 #        stderr = OutputWrapper(self, False)
 #        stderr.outputWritten.connect(self.handleOutput)
 
+    def UpdateWindowTitle(self):
+        self.setWindowTitle('BabelBrain V'+
+                            self.Config['version'] +' - ' + 
+                            self.Config['ID'] + ' - ' + 
+                            self.Config['TxSystem'] + ' - ' + 
+                            os.path.split(self.Config['ThermalProfile'])[1].split('.yaml')[0])
+        self.Widget.IDLabel.setText(self.Config['ID'])
+        self.Widget.TXLabel.setText(self.Config['TxSystem'])
+        self.Widget.ThermalProfileLabel.setText(os.path.split(self.Config['ThermalProfile'])[1].split('.yaml')[0])
+    
+    def UpdateThermalProfile(self,fThermalProfile):
+        bValid,msg = ValidThermalProfile(fThermalProfile)
+        if not bValid:
+            print('bValid,msg',bValid,msg)
+            msgBox = QMessageBox()
+            msgBox.setText("Please indicate valid entries in the profile")
+            msgBox.setDetailedText(msg)
+            msgBox.exec()
+            return False
+        else:
+            self.Config['ThermalProfile']=fThermalProfile
+            self.UpdateWindowTitle()
+            self.SaveLatestSelection()
+            return True
+
     def UpdateMaskParameters(self):
         '''
         Update of GUI elements and parameters to be used in LFIU
@@ -417,14 +612,6 @@ class BabelBrain(QWidget):
 
         for obj in [self.Widget.USPPWSpinBox]:
             obj.setProperty('UserData',obj.value())
-
-
-    def EndWithError(self,msg):
-         msgBox = QMessageBox()
-         msgBox.setIcon(QMessageBox.Critical)
-         msgBox.setText(msg)
-         msgBox.exec()
-         raise SystemError(msg)
 
 
 
@@ -442,10 +629,23 @@ class BabelBrain(QWidget):
         BasePPW=self.Widget.USPPWSpinBox.property('UserData')
 
         self._prefix= self.Config['ID'] + '_' + self.Config['TxSystem'] +'_%ikHz_%iPPW_' %(int(Frequency/1e3),BasePPW)
-        self._prefix_path=os.path.dirname(self.Config['T1WIso'])+os.sep+self._prefix
+        basedir = self.Config['OutputFilesPath']
+        if not os.path.isdir(basedir):
+            try:
+                os.makedirs(basedir)
+            except:
+                msgBox = QMessageBox()
+                msgBox.setIcon(QMessageBox.Critical)
+                msgBox.setText("Unable to create directory to save results at:\n" + basedir)
+                msgBox.exec()
+                raise
+                
+        self._prefix_path=basedir+os.sep+self._prefix
         self._outnameMask=self._prefix_path+'BabelViscoInput.nii.gz'
-        self._BrainsightInput=self._prefix_path+'FullElasticSolution.nii.gz'
-
+        self._trackingtimefile = self._prefix_path+'ExecutionTimes.yml'
+        if not os.path.isfile(self._trackingtimefile):
+            self.UpdateComputationalTime('domain',0.0) #this will initalize the trackig file
+        
         print('outname',self._outnameMask)
         self._T1W_resampled_fname=self._outnameMask.split('BabelViscoInput.nii.gz')[0]+'T1W_Resampled.nii.gz'
         bCalcMask=False
@@ -458,7 +658,7 @@ class BabelBrain(QWidget):
             bCalcMask = True
 
         if bCalcMask:
-            #We run the Backkground
+            #We run the Background
             self.thread = QThread()
             self.worker = RunMaskGeneration(self)
             self.worker.moveToThread(self.thread)
@@ -474,22 +674,25 @@ class BabelBrain(QWidget):
 
             self.thread.start()
             self.Widget.tabWidget.setEnabled(False)
+            self.showClockDialog()
 
         else:
             self.UpdateMask()
 
     #this will modify the coordinates of the trajectory
     def ExportTrajectory(self,CorX=0.0,CorY=0.0,CorZ=0.0):
-        newFName=os.path.join(os.path.split(self.Config['Mat4Trajectory'])[0],'_mod_'+os.path.split(self.Config['Mat4Trajectory'])[1])
+        newFName=os.path.join(self.Config['OutputFilesPath'],'_mod_'+os.path.split(self.Config['Mat4Trajectory'])[1])
             
         if self.Config['TrajectoryType']=='brainsight':
             OrigTraj=ReadTrajectoryBrainsight(self.Config['Mat4Trajectory'])
-            OrigTraj[0,3]+=CorX
-            OrigTraj[1,3]+=CorY
-            OrigTraj[2,3]+=CorZ
+            OrigTraj[0,3]-=CorX
+            OrigTraj[1,3]-=CorY
+            OrigTraj[2,3]-=CorZ
             with open(self.Config['Mat4Trajectory'],'r') as f:
                 allLines=f.readlines()
             for n,l in enumerate(allLines):
+                if 'Created by: ' in l:
+                    allLines[n] = '# Created by: BabelBrain ' + self.Config['version'] +'\n' 
                 if l[0]!='#':
                     break
             LastLine=l.split('\t')
@@ -522,6 +725,7 @@ class BabelBrain(QWidget):
         
             with open(newFName,'w') as f:
                 f.write(outString)
+        return newFName
 
 
 
@@ -529,6 +733,8 @@ class BabelBrain(QWidget):
         self.AcSim.NotifyGeneratedMask()
 
     def NotifyError(self):
+        self.SetErrorDomainCode()
+        self.hideClockDialog()
         msgBox = QMessageBox()
         msgBox.setIcon(QMessageBox.Critical)
         msgBox.setText("There was an error in execution -\nconsult log window for details")
@@ -538,9 +744,15 @@ class BabelBrain(QWidget):
         '''
         Refresh mask
         '''
+        self.hideClockDialog()
+        if self.Widget.HideMarkscheckBox.isEnabled()== False:
+            self.Widget.HideMarkscheckBox.setEnabled(True)
         self.Widget.tabWidget.setEnabled(True)
         self.AcSim.setEnabled(True)
-        Data=nibabel.load(self._outnameMask)
+        try:
+            Data=nibabel.load(self._outnameMask)
+        except:
+            raise ValueError("BabelViscoInput file does not exist. This is most likely due to a crash related to high PPW, please explore using lower PPW")
         FinalMask=Data.get_fdata()
         FinalMask=np.flip(FinalMask,axis=2)
         T1W=nibabel.load(self._T1W_resampled_fname)
@@ -548,7 +760,7 @@ class BabelBrain(QWidget):
         T1WData=np.flip(T1WData,axis=2)
         self._T1WData=T1WData
         
-        self._DataMask=Data
+        self._MaskData=Data
         if self.Config['bUseCT']:
             self._CTnib=nibabel.load(self._prefix_path+'CT.nii.gz')
             CTData=np.flip(self._CTnib.get_fdata(),axis=2)
@@ -611,6 +823,7 @@ class BabelBrain(QWidget):
             self._imMasks=[]
             self._imT1W=[]
             self._imCtMasks=[]
+            self._markers=[]
 
             self._figMasks = Figure(figsize=(18, 6))
 
@@ -623,6 +836,7 @@ class BabelBrain(QWidget):
             self._layout.addWidget(self.static_canvas)
 
             axes=self.static_canvas.figure.subplots(1,3)
+            self._axes=axes
 
             for CMap,T1WMap,CTMap,extent,static_ax,vec1,vec2,c1,c2 in zip([CMapXZ,CMapYZ,CMapXY],
                                     [T1WXZ,T1WYZ,T1WXY],
@@ -641,12 +855,21 @@ class BabelBrain(QWidget):
                     self._imCtMasks.append(static_ax.imshow(Zm,cmap=cm.gray,extent=extent,aspect='equal'))
                 else:
                     self._imCtMasks.append(None)
-                self._imT1W.append(static_ax.imshow(T1WMap,extent=extent,aspect='equal'))   
-                static_ax.plot(vec1[c1],vec2[c2],'+y',markersize=14)
+                self._imT1W.append(static_ax.imshow(T1WMap,extent=extent,aspect='equal')) 
+                self._markers.append(static_ax.plot(vec1[c1],vec2[c2],'+y',markersize=14)[0])
             self._figMasks.set_facecolor(np.array(self.palette().color(QPalette.Window).getRgb())/255)
-
         self.UpdateAcousticTab()
         self.Widget.TransparencyScrollBar.setEnabled(True)
+
+    @Slot()
+    def HideMarks(self,v):
+        mc=[0.75, 0.75, 0.0,1.0]
+        if self.Widget.HideMarkscheckBox.isChecked():
+            mc[3] = 0.0
+        for m in self._markers:
+            m.set_markerfacecolor(mc)
+            m.set_markeredgecolor(mc)
+        self._figMasks.canvas.draw_idle()
     
     @Slot()
     def UpdateTransparency(self):
@@ -666,9 +889,36 @@ class BabelBrain(QWidget):
         ExtraConfig['PPW']=self.Widget.USPPWSpinBox.property('UserData')
         if self.Config['bUseCT']:
             ExtraConfig['HUThreshold']=self.Widget.HUTreshold.value()
-            if self.Config['CTType']==2 : #ZTE
+            if self.Config['CTType'] in [2,3]: #ZTE or PETRA
                 ExtraConfig['ZTERange']=self.Widget.ZTERangeSlider.value()
-        return self.Config | ExtraConfig
+        with open(self._trackingtimefile,'r') as f:
+            self._TrackingTime=yaml.load(f,yaml.SafeLoader)
+        return self.Config | ExtraConfig | self._TrackingTime
+    
+    ##
+    def SetSuccesCode(self):
+        self.RETURN_CODE = ReturnCodes['SUCCES']
+
+    def SetErrorDomainCode(self):
+        self.RETURN_CODE = ReturnCodes['ERROR_DOMAIN']
+
+    def SetErrorAcousticsCode(self):
+        self.RETURN_CODE = ReturnCodes['ERROR_ACOUSTICS']
+        
+    def UpdateComputationalTime(self,step,steptime):
+        if os.path.isfile(self._trackingtimefile):
+            with open(self._trackingtimefile,'r') as f:
+                self._TrackingTime=yaml.load(f,yaml.SafeLoader)
+        if step == 'domain':
+            self._TrackingTime['Calculation time domain']=steptime
+        elif step == 'ultrasound':
+            self._TrackingTime['Calculation time ultrasound']=steptime
+        elif step == 'thermal':
+            self._TrackingTime['Calculation time thermal']=steptime
+        else:
+            raise ValueError('type of step to track time not valid -'+step)
+        with open(self._trackingtimefile,'w') as f:
+            yaml.dump(self._TrackingTime,f,yaml.SafeDumper)
 
 class RunMaskGeneration(QObject):
 
@@ -730,6 +980,7 @@ class RunMaskGeneration(QObject):
         kargs['CoregCT_MRI']=self._mainApp.Config['CoregCT_MRI']
         kargs['TrajectoryType']=self._mainApp.Config['TrajectoryType']
         kargs['Mat4Trajectory']=self._mainApp.Config['Mat4Trajectory'] #Path to trajectory file
+        kargs['T1Source_nii']=T1W
         kargs['T1Conformal_nii']=T1WIso
         kargs['nIterationsAlign']=10
         kargs['SpatialStep']=SpatialStep
@@ -740,8 +991,8 @@ class RunMaskGeneration(QObject):
         kargs['bAlignToSkin']=True
         if self._mainApp.Config['bUseCT']:
             kargs['CT_or_ZTE_input']=self._mainApp.Config['CT_or_ZTE_input']
-            kargs['bIsZTE']=self._mainApp.Config['CTType']==2
-            if kargs['bIsZTE']:
+            kargs['CTType']=self._mainApp.Config['CTType']
+            if kargs['CTType'] in [2,3]:
                 kargs['ZTERange']=self._mainApp.Widget.ZTERangeSlider.value()
             kargs['HUThreshold']=self._mainApp.Widget.HUTreshold.value()
         # Start mask generation as separate process.
@@ -771,19 +1022,19 @@ class RunMaskGeneration(QObject):
                 bNoError=False
         if bNoError:
             TEnd=time.time()
-            print('Total time',TEnd-T0)
+            TotalTime = TEnd-T0
+            print('Total time',TotalTime)
             print("*"*40)
             print("*"*5+" DONE calculating mask.")
             print("*"*40)
+            self._mainApp.UpdateComputationalTime('domain',TotalTime)
             self.finished.emit()
         else:
             print("*"*40)
             print("*"*5+" Error in execution.")
             print("*"*40)
             self.endError.emit()
-
 def main():
-
     if os.getenv('FSLDIR') is None:
         os.environ['FSLDIR']='/usr/local/fsl'
         os.environ['FSLOUTPUTTYPE']='NIFTI_GZ'
@@ -793,7 +1044,7 @@ def main():
         def error(self, message):
             sys.stderr.write('error: %s\n' % message)
             self.print_help()
-            sys.exit(2)
+            sys.exit(10)
     
     parser = MyParser(prog='BabelBrain', usage='python %(prog)s.py [options]',description='Run BabelBrain simulation',  formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-bInUseWithBrainsight', action='store_true')
@@ -801,7 +1052,7 @@ def main():
     args = parser.parse_args()
 
     app = QApplication([])
-
+ 
     selwidget = SelFiles()
     
     prevConfig=GetLatestSelection()
@@ -847,24 +1098,39 @@ def main():
 
         if 'TxSystem' in prevConfig:
             selwidget.SelectTxSystem(prevConfig['TxSystem'])
-
+        if 'MultiPoint' in prevConfig:
+            if prevConfig['EnableMultiPoint']:
+                selwidget.ui.MultiPointTypecomboBox.setCurrentIndex(1)
+            if len(prevConfig['MultiPoint'].strip())>0:
+                selwidget.ui.MultiPointlineEdit.setText(prevConfig['MultiPoint'])
+                
+    AltOutputFilesPath=None
     if args.bInUseWithBrainsight:
-        Brainsight=GetInputFromBrainsight()
+        Brainsight,header=GetInputFromBrainsight()
         assert(Brainsight is not None)
         selwidget.ui.SimbNIBSlineEdit.setText(Brainsight['simbnibs_path'])
         selwidget.ui.T1WlineEdit.setText(Brainsight['T1W'])
         selwidget.ui.TrajectorylineEdit.setText(Brainsight['Mat4Trajectory'])
+        selwidget.ui.TrajectoryTypecomboBox.setCurrentIndex(0)
+        AltOutputFilesPath=Brainsight['outputfiles_path']
 
     icon = QIcon(os.path.join(resource_path(),'Proteus-Alciato-logo.png'))
     app.setWindowIcon(icon)
 
-    
-    selwidget.exec()
+
+    ret=selwidget.exec()
+    if ret ==-1:
+        sys.exit(ReturnCodes['CANCEL_OR_INCOMPLETE'])
     
     widget = BabelBrain(selwidget,
-                        bInUseWithBrainsight=args.bInUseWithBrainsight)
+                        bInUseWithBrainsight=args.bInUseWithBrainsight,
+                        AltOutputFilesPath=AltOutputFilesPath)
     widget.show()
-    sys.exit(app.exec())
+    retcode=app.exec()
+    if (retcode==0):
+        sys.exit(widget.RETURN_CODE)
+    else:
+        return retcode
 
 if __name__ == "__main__":
 
