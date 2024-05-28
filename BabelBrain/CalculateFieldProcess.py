@@ -57,6 +57,9 @@ def CalculateFieldProcess(queue,Target,TxSystem,**kargs):
         stdout = InOutputWrapper(queue,True)
     try:
         R=RUN_SIM()
+        bUseCT = True
+        if 'bUseCT' in kargs:
+            print('bUseCT: ',kargs['bUseCT'])
         FilesSkull=R.RunCases(targets=Target, 
                         bTightNarrowBeamDomain=True,
                         bForceRecalc=True,

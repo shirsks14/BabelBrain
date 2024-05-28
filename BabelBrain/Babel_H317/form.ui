@@ -279,7 +279,7 @@ to target (mm) :</string>
    <property name="geometry">
     <rect>
      <x>230</x>
-     <y>60</y>
+     <y>40</y>
      <width>90</width>
      <height>22</height>
     </rect>
@@ -402,74 +402,11 @@ target (mm)</string>
     <double>40.000000000000000</double>
    </property>
   </widget>
-  <widget class="QDoubleSpinBox" name="YSteeringSpinBox">
-   <property name="geometry">
-    <rect>
-     <x>230</x>
-     <y>120</y>
-     <width>90</width>
-     <height>22</height>
-    </rect>
-   </property>
-   <property name="alignment">
-    <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-   </property>
-   <property name="decimals">
-    <number>1</number>
-   </property>
-   <property name="minimum">
-    <double>-20.000000000000000</double>
-   </property>
-   <property name="maximum">
-    <double>20.000000000000000</double>
-   </property>
-   <property name="singleStep">
-    <double>0.100000000000000</double>
-   </property>
-  </widget>
-  <widget class="QLabel" name="label_28">
-   <property name="geometry">
-    <rect>
-     <x>30</x>
-     <y>120</y>
-     <width>143</width>
-     <height>20</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>YSteering  (mm)</string>
-   </property>
-  </widget>
-  <widget class="QDoubleSpinBox" name="XSteeringSpinBox">
-   <property name="geometry">
-    <rect>
-     <x>230</x>
-     <y>90</y>
-     <width>90</width>
-     <height>22</height>
-    </rect>
-   </property>
-   <property name="alignment">
-    <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-   </property>
-   <property name="decimals">
-    <number>1</number>
-   </property>
-   <property name="minimum">
-    <double>-20.000000000000000</double>
-   </property>
-   <property name="maximum">
-    <double>20.000000000000000</double>
-   </property>
-   <property name="singleStep">
-    <double>0.100000000000000</double>
-   </property>
-  </widget>
   <widget class="QLabel" name="label_29">
    <property name="geometry">
     <rect>
      <x>30</x>
-     <y>90</y>
+     <y>70</y>
      <width>143</width>
      <height>20</height>
     </rect>
@@ -559,7 +496,7 @@ water only</string>
    <property name="geometry">
     <rect>
      <x>231</x>
-     <y>100</y>
+     <y>110</y>
      <width>90</width>
      <height>22</height>
     </rect>
@@ -587,26 +524,13 @@ water only</string>
    <property name="geometry">
     <rect>
      <x>29</x>
-     <y>101</y>
+     <y>110</y>
      <width>143</width>
      <height>20</height>
     </rect>
    </property>
    <property name="text">
     <string>YSteering  (mm)</string>
-   </property>
-  </widget>
-  <widget class="QLabel" name="label_29">
-   <property name="geometry">
-    <rect>
-     <x>29</x>
-     <y>73</y>
-     <width>143</width>
-     <height>20</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>XSteering  (mm)</string>
    </property>
   </widget>
   <widget class="QDoubleSpinBox" name="XSteeringSpinBox">
@@ -660,7 +584,7 @@ water only</string>
    <property name="geometry">
     <rect>
      <x>44</x>
-     <y>378</y>
+     <y>380</y>
      <width>226</width>
      <height>48</height>
     </rect>
@@ -678,8 +602,6 @@ water only</string>
  </widget>
  <tabstops>
   <tabstop>DistanceConeToFocusSpinBox</tabstop>
-  <tabstop>XSteeringSpinBox</tabstop>
-  <tabstop>YSteeringSpinBox</tabstop>
   <tabstop>ZSteeringSpinBox</tabstop>
   <tabstop>ZRotationSpinBox</tabstop>
   <tabstop>XMechanicSpinBox</tabstop>

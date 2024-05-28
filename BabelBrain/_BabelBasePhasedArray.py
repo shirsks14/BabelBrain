@@ -300,7 +300,8 @@ class BabelBasePhaseArray(BabelBaseTx):
             AllWater=np.zeros((sz[0],sz[1],sz[2],len(self._AcResults)))
             for n,entry in enumerate(self._AcResults):
                 ISkull=entry['Skull'][SelP]**2/2/DensityMap/SoSMap/1e4
-                ISkull[Skull['MaterialMap']!=3]=0
+                # ISkull[Skull['MaterialMap']!=3]=0
+                ISkull[Skull['MaterialMap']!=0]=0
                 IWater=entry['Water']['p_amp']**2/2/Water['Material'][0,0]/Water['Material'][0,1]
                 
                 AllSkull[:,:,:,n]=ISkull
@@ -312,7 +313,8 @@ class BabelBasePhaseArray(BabelBaseTx):
                 self._IWaterCol.append(IWater)
             #now we add the max projection of fields, we add it at the top
             AllSkull=AllSkull.max(axis=3)
-            AllSkull[Skull['MaterialMap']!=3]=0
+            # AllSkull[Skull['MaterialMap']!=3]=0
+            AllSkull[Skull['MaterialMap']!=0]=0
             AllSkull/=AllSkull.max()
             AllWater=AllWater.max(axis=3)
             AllWater/=AllWater.max()
@@ -380,9 +382,11 @@ class BabelBasePhaseArray(BabelBaseTx):
                 del self._contour2
 
             self._imContourf1=self._static_ax1.contourf(self._XX,self._ZZX,sliceXZ.T,np.arange(2,22,2)/20,cmap=plt.cm.jet)
+            # self._imContourf1=self._static_ax1.contourf(self._XX,self._ZZX,sliceXZ.T,cmap=plt.cm.jet)
             self._contour1 = self._static_ax1.contour(self._XX,self._ZZX,self._Skull['MaterialMap'][:,SelY,:].T,[0,1,2,3], cmap=plt.cm.gray)
 
             self._imContourf2=self._static_ax2.contourf(self._YY,self._ZZY,sliceYZ.T,np.arange(2,22,2)/20,cmap=plt.cm.jet)
+            # self._imContourf2=self._static_ax2.contourf(self._YY,self._ZZY,sliceYZ.T,cmap=plt.cm.jet)
             self._contour2 = self._static_ax2.contour(self._YY,self._ZZY,self._Skull['MaterialMap'][SelX,:,:].T,[0,1,2,3], cmap=plt.cm.gray)
 
             self._figAcField.canvas.draw_idle()
@@ -401,6 +405,7 @@ class BabelBasePhaseArray(BabelBaseTx):
             self._static_ax2 = static_ax2
 
             self._imContourf1=static_ax1.contourf(self._XX,self._ZZX,sliceXZ.T,np.arange(2,22,2)/20,cmap=plt.cm.jet)
+            # self._imContourf1=static_ax1.contourf(self._XX,self._ZZX,sliceXZ.T,cmap=plt.cm.jet)
             h=plt.colorbar(self._imContourf1,ax=static_ax1)
             h.set_label('$I_{\mathrm{SPPA}}$ (normalized)')
             self._contour1 = static_ax1.contour(self._XX,self._ZZX,self._Skull['MaterialMap'][:,SelY,:].T,[0,1,2,3], cmap=plt.cm.gray)
@@ -410,6 +415,7 @@ class BabelBasePhaseArray(BabelBaseTx):
             static_ax1.invert_yaxis()
             self._marker1,=static_ax1.plot(0,self._DistanceToTarget,'+k',markersize=18)
                 
+            # self._imContourf2=static_ax2.contourf(self._YY,self._ZZY,sliceYZ.T,cmap=plt.cm.jet)
             self._imContourf2=static_ax2.contourf(self._YY,self._ZZY,sliceYZ.T,np.arange(2,22,2)/20,cmap=plt.cm.jet)
             h=plt.colorbar(self._imContourf1,ax=static_ax2)
             h.set_label('$I_{\mathrm{SPPA}}$ (normalized)')

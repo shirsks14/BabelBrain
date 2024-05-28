@@ -69,6 +69,7 @@ def CalculateMaskProcess(queue,COMPUTING_BACKEND,devicename,**kargs):
             DataPreps.InitBinaryClosingGPUCallback(BinaryClosing.BinaryClose, COMPUTING_BACKEND)
         else:
             assert(COMPUTING_BACKEND in [1,2])
+            from GPUMedianFilter import  MedianFilter
 
             if COMPUTING_BACKEND==1:
                 Voxelize.InitCUDA(DeviceName= devicename)
@@ -77,6 +78,7 @@ def CalculateMaskProcess(queue,COMPUTING_BACKEND,devicename,**kargs):
                 BinaryClosing.InitCUDA(DeviceName= devicename)
                 LabelImage.InitCUDA(DeviceName= devicename)
             elif COMPUTING_BACKEND==2:
+                MedianFilter.InitOpenCL(DeviceName= devicename)
                 Voxelize.InitOpenCL(DeviceName= devicename)
                 MappingFilter.InitOpenCL(DeviceName= devicename)
                 Resample.InitOpenCL(DeviceName= devicename)
@@ -85,6 +87,7 @@ def CalculateMaskProcess(queue,COMPUTING_BACKEND,devicename,**kargs):
            
                 
             DataPreps.InitVoxelizeGPUCallback(Voxelize.Voxelize,COMPUTING_BACKEND)
+            DataPreps.InitMedianGPUCallback(MedianFilter.MedianFilterSize7,COMPUTING_BACKEND)
             DataPreps.InitMappingGPUCallback(MappingFilter.MapFilter,COMPUTING_BACKEND)
             DataPreps.InitResampleGPUCallback(Resample.ResampleFromTo,COMPUTING_BACKEND)
             DataPreps.InitBinaryClosingGPUCallback(BinaryClosing.BinaryClose,COMPUTING_BACKEND)

@@ -35,18 +35,31 @@ __kernel void affine_transform(__global const float * x,
                       const int order,
                       const int in_dims_0,
                       const int in_dims_1,
-                      const int in_dims_2) 
+                      const int in_dims_2,
+                      const int out_dims_0,
+                      const int out_dims_1,
+                      const int out_dims_2,
+                      const int output_idx) 
 
 {
 
-    unsigned int out_dims_1 = get_global_size(1);
-    unsigned int out_dims_2 = get_global_size(2);
+    // unsigned int out_dims_1 = get_global_size(1);
+    // unsigned int out_dims_2 = get_global_size(2);
 
-    const size_t xind =  get_global_id(0);
-    const size_t yind =  get_global_id(1);
-    const size_t zind =  get_global_id(2);
+    size_t xind_temp =  get_global_id(0);
+    size_t yind_temp =  get_global_id(1);
+    size_t zind_temp =  get_global_id(2);
 
-    const ptrdiff_t _i = xind*out_dims_1*out_dims_2 + yind*out_dims_2 + zind;
+    const size_t _i_temp = xind_temp*out_dims_1*out_dims_2 + yind_temp*out_dims_2 + zind_temp;
+    const size_t true_gid  = _i_temp + output_idx; // overall position in output array
+
+    const size_t xind =  true_gid/(out_dims_1*out_dims_2);
+    const size_t yind =  (true_gid-xind*out_dims_1*out_dims_2)/out_dims_2;
+    const size_t zind =  true_gid -xind*out_dims_1*out_dims_2 - yind * out_dims_2;
+
+    const size_t _i = xind*out_dims_1*out_dims_2 + yind*out_dims_2 + zind;
+
+
 #endif
 
 #ifdef _METAL
@@ -976,34 +989,70 @@ def ResampleFromTo(from_img, to_vox_map,order=3,mode="constant",cval=0.0,out_cla
         filtered = filtered.astype(np.float32, copy=False)
         m = m.astype(np.float32, copy=False)
         output = output.astype(np.float32, copy=False)
-        
-        # Move input data from host to device memory
-        filtered_gpu = clp.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=filtered)
-        m_gpu = clp.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=m)
-        output_gpu = clp.Buffer(ctx, mf.WRITE_ONLY, output.nbytes)
 
         assert(np.isfortran(output)==False)
         assert(np.isfortran(m)==False)
         assert(np.isfortran(filtered)==False)
 
-        # Deploy affine transform kernel
-        try:
-            knl_at(queue, output.shape,
+        if np.prod(to_shape) > 1 << 32: # i.e. bigger than what uint32 can represent
+            raise ValueError("Error running resample step, suggest lowering PPW")
+        
+        step = 240000000
+        totalPoints = np.prod(output.shape)
+        
+        for point in range(0, totalPoints,step):
+            # Grab indices for current output section
+            x_start = (point // (output.shape[1] * output.shape[2]))
+            x_end = min(((point + step) // (output.shape[1] * output.shape[2])),output.shape[0])
+            print(f"Working on slices {x_start} to {x_end} out of {output.shape[0]} total slices")
+
+            # Grab section of output
+            output_section = np.copy(output[x_start:x_end,:,:])
+
+            # Pass along position in output array
+            current_position = x_start * output.shape[1]*output.shape[2]
+
+            # GPU call
+            # Move input data from host to device memory
+            filtered_gpu = clp.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=filtered)
+            m_gpu = clp.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=m)
+            output_section_gpu = clp.Buffer(ctx, mf.WRITE_ONLY, output_section.nbytes)
+
+
+
+
+            print("Kernel Call")
+            knl_at(queue, output_section.shape,
                 None,
                 filtered_gpu,
                 m_gpu,
-                output_gpu,
+                output_section_gpu,
                 np.float32(cval),
                 np.int32(order),
                 np.int32(filtered.shape[0]),
                 np.int32(filtered.shape[1]),
                 np.int32(filtered.shape[2]),
+                np.int32(output.shape[0]),
+                np.int32(output.shape[1]),
+                np.int32(output.shape[2]),
+                np.int32(current_position)
             )
-        except clp.MemoryError as e:
-            raise MemoryError(f"{e}\nRan out of GPU memory, suggest lowering PPW")
 
-        # Move kernel output data back to host memory
-        clp.enqueue_copy(queue, output, output_gpu)
+            # Move kernel output data back to host memory
+            queue.finish()
+            print("Kernel Call finished")
+            print("Copying back results")
+            clp.enqueue_copy(queue, output_section, output_section_gpu)
+            queue.finish()
+            print("Copying back results finished")
+            filtered_gpu.release()
+            output_section_gpu.release()
+            m_gpu.release()
+            queue.finish()
+            
+            # Record results in output array
+            output[x_start:x_end,:,:] = output_section[:,:,:]
+
 
         if integer_output:
             output = output.astype("int16")

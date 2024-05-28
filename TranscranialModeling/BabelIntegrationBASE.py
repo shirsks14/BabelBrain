@@ -549,6 +549,7 @@ class BabelFTD_Simulations_BASE(object):
                  bWaterOnly=False,
                  QCorrection=3,
                  MappingMethod='US-Imaging',
+                 bPETRA = False, #Specify if CT is derived from PETRA
                  CTFNAME=None):
         self._MASKFNAME=MASKFNAME
         
@@ -650,9 +651,9 @@ class BabelFTD_Simulations_BASE(object):
                 DensityCTIT=HUtoDensityMarsac(AllBoneHU)
 
 
-                # LSoSIT=2691.07 # Skull 3880
+                LSoSIT=2405 # Skull 3880
 
-                LSoSIT=2787 # Skull 4000
+                # LSoSIT=2634 # Skull 4000
                 LSoSIT=LSoSIT*np.ones_like(DensityCTIT)
 
                 # LSoSIT = HUtoLongSpeedofSoundWebb(AllBoneHU)
@@ -1269,7 +1270,8 @@ elif self._bTightNarrowBeamDomain:
                 self._MaterialMap[BoneRegion]=SubCTMap[BoneRegion]
                 assert(SubCTMap[BoneRegion].min()>=3)
                 assert(SubCTMap[BoneRegion].max()<=self.ReturnArrayMaterial().max())
-
+                print('Regions: ',SubCTMap[BoneRegion].max())
+                print('Regions: ',self.ReturnArrayMaterial().max())
             else:
                 self._MaterialMap[self._MaterialMap==5]=4 # this is to make the focal spot location as brain tissue
 

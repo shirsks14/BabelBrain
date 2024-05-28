@@ -301,16 +301,22 @@ inline bool checkVoxelInd(const size_t index, device const unsigned int * vtable
 
 #ifdef _OPENCL
 __kernel void ExtractPoints(__global const unsigned int* voxel_table,
-                             __global ulong * globalcount,
+                             __global uint * globalcount,
                              __global float * Points,
                             const unsigned int total,
-                            const ulong base,
-                            const ulong basePoint,
+                            const uint old_base,
+                            const uint base64,
+                            const uint basePoint,
                             const unsigned int gx,
                             const unsigned int gy,
                             const unsigned int gz)
                             {
     size_t k = get_global_id(0);
+
+    size_t base = (size_t)(old_base);
+    if (base64 > 0){
+        base += base64 * 4294967296;
+    }
 #endif
 
 #ifdef _CUDA
@@ -559,7 +565,7 @@ def Voxelize(inputMesh,targetResolution=1333/500e3/6*0.75*1e3,GPUBackend='OpenCL
         step=240000000
         sizePdev=min((step,totalPoints))
         Points_part=np.zeros((sizePdev,3),np.float32)
-        globalcount=np.zeros(2,np.uint64)
+        globalcount=np.zeros(2,np.uint32)
         if GPUBackend=='OpenCL':
             Points_dev=clp.Buffer(ctx, mf.WRITE_ONLY, Points_part.nbytes)
             globalcount_dev=clp.Buffer(ctx, mf.READ_WRITE| mf.COPY_HOST_PTR, hostbuf=globalcount )
@@ -609,12 +615,20 @@ def Voxelize(inputMesh,targetResolution=1333/500e3/6*0.75*1e3,GPUBackend='OpenCL
             for nt in range(0,totalGrid,step):
                 ntotal=min((totalGrid-nt,step))
                 if GPUBackend=='OpenCL':
+                    # Since we can't send numbers larger than 32 bits in Metal due to buffer size restrictions, 
+                    # we check the size here, send info to kernel, and create number there as workaround
+                    nt64 = nt // (1 << 32)
+                    if nt64 >= 1:
+                        nt_temp = nt - (nt64 * (1 << 32)) 
+                        nt = nt_temp
+                    
                     prg.ExtractPoints(queue,[ntotal],None,vtable_dev,
                                                     globalcount_dev,
                                                     Points_dev,
                                                     np.uint32(ntotal),
-                                                    np.uint64(nt),
-                                                    np.uint64(prevPInd),
+                                                    np.uint32(nt),
+                                                    np.uint32(nt64),
+                                                    np.uint32(prevPInd),
                                                     np.uint32(gx),
                                                     np.uint32(gy),
                                                     np.uint32(gz))
