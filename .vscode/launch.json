@@ -7,11 +7,12 @@
         {
             "name": "BabelBrain",
             "type": "python",
-            "python": "/home/sshrestha/miniconda3/envs/BabelBrain/bin/python",
+            // "python": "/home/sshrestha/miniconda3/envs/BabelBrain/bin/python",
+            "python": "C:/Users/Shirshak/miniconda3/envs/BabelBrain/python.exe",
             "type": "debugpy",
             "request": "launch",
-            "program": "/home/sshrestha/Documents/GitHub/BabelBrain/BabelBrain/BabelBrain.py",
-            // "program": "D:\\Shirshak\\Research\\BabelBrain_Fresh\\BabelBrain\\BabelBrain\\BabelBrain.py",
+            // "program": "/home/sshrestha/Documents/GitHub/BabelBrain/BabelBrain/BabelBrain.py",
+            "program": "D:/Shirshak/Research/BabelBrain/BabelBrain/BabelBrain/BabelBrain.py",
             "qt": "auto",
             "console": "integratedTerminal",
             "justMyCode": false
