@@ -908,7 +908,10 @@ def GetSkullMaskFromSimbNIBSSTL(SimbNIBSDir='4007/4007_keep/m2m_4007_keep/',
         XYZ=skull_grid
         XYZ=np.hstack((XYZ,np.ones((XYZ.shape[0],1),dtype=skull_grid.dtype))).T
         AffIJK=np.round(np.dot(InVAffineRot,XYZ)).astype(int).T
-        NewOrig=baseaffineRot @np.array([AffIJK[:,0].min(),AffIJK[:,1].min(),AffIJK[:,2].min(),1]).reshape((4,1))
+        increaseGridSize = 30
+        NewOrig=baseaffineRot @np.array([AffIJK[:,0].min()-increaseGridSize,
+                                         AffIJK[:,1].min()-increaseGridSize,
+                                         AffIJK[:,2].min()-increaseGridSize,1]).reshape((4,1))
         baseaffineRot[:,3]=NewOrig.flatten()
         InVAffineRot=np.linalg.inv(baseaffineRot)
         InVAffineRot=InVAffineRot.astype(skull_grid.dtype)
