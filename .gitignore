@@ -136,3 +136,7 @@ docs/site/**
 BabelBrain/final
 .vscode/launch.json
 ThermalProfiles/Shirshak_Refocus.yaml
+.vscode/settings.json
+report.html
+Tests/config.ini
+assets/style.css

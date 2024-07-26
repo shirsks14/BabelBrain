@@ -76,7 +76,7 @@ dependencies:
       - mkdocs-windmill==1.0.5
       - multidict==6.0.2
       - networkx==2.8.8
-      - nibabel==4.0.2
+      - nibabel==5.2.1
       - numba==0.56.2
       - numpy-stl==2.17.1
       - packaging==21.3

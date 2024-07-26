@@ -58,7 +58,7 @@ dependencies:
       - llvmlite==0.39.1
       - matplotlib==3.7.1
       - networkx==3.0
-      - nibabel==5.0.1
+      - nibabel==5.2.1
       - numba==0.56.4
       - numpy==1.23.5
       - numpy-stl==3.0.1
