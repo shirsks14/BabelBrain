@@ -545,6 +545,7 @@ class BabelFTD_Simulations_BASE(object):
                  bWaterOnly=False,
                  QCorrection=3,
                  MappingMethod='US-Imaging',
+                 CTMapCombo=('GE','120','B','','0.5, 0.6'),
                  bPETRA = False, #Specify if CT is derived from PETRA
                  CTFNAME=None):
         self._MASKFNAME=MASKFNAME
