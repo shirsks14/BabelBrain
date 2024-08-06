@@ -192,7 +192,8 @@ def CTCorreg(InputT1,InputCT, outputfnames,ElastixOptimizer,CoregCT_MRI=0, bReus
         return nibabel.load(InputCT)
     else:
         T1fnameBiasCorrec= outputfnames['T1fnameBiasCorrec']
-        N4BiasCorrec(InputT1,[outputfnames['ReuseSimbNIBS'],outputfnames['Skull_STL'],outputfnames['CSF_STL'],outputfnames['Skin_STL']],T1fnameBiasCorrec)
+        # N4BiasCorrec(InputT1,[outputfnames['ReuseSimbNIBS'],outputfnames['Skull_STL'],outputfnames['CSF_STL'],outputfnames['Skin_STL']],T1fnameBiasCorrec)
+        N4BiasCorrec(InputT1,[outputfnames['Skull_STL']],T1fnameBiasCorrec)
         
         #coreg
         if CoregCT_MRI==1:
