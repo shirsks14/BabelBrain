@@ -263,7 +263,7 @@ def PorositytoLAtt(Phi,Frequency):
     Att = amin + (amax - amin)*(Phi**0.5)
     return Att
 
-def HUtoAttenuationWebb(HU,Frequency,Params=['GE','120','B','','0.49, 0.63']):
+def HUtoAttenuationWebb(HU,Frequency,Params=['GE','120','B','','0.5, 0.6']):
     #these values are for 120 kVp, BonePlus Kernel, axial res = 0.49, slice res=0.63 in GE Scanners
     #Table IV in Webb et al. IEEE Trans Ultrason Ferroelectr Freq Control 68, no. 5 (2020): 1532-1545.
     # DOI: 10.1109/TUFFC.2020.3039743
@@ -972,6 +972,7 @@ class SimulationConditionsBASE(object):
                       ExtraAdjustX =[0.0],
                       ExtraAdjustY =[0.0],
                       DispersionCorrection=[-2307.53581298, 6875.73903172, -7824.73175146, 4227.49417250, -975.22622721]):  #coefficients to correct for values lower of CFL =1.0 in wtaer conditions.
+        # self._Materials=[[baseMaterial[0],baseMaterial[1],baseMaterial[2],baseMaterial[3],baseMaterial[4]]]
         self._Materials=[[baseMaterial[0],baseMaterial[1],baseMaterial[2],baseMaterial[3],baseMaterial[4]]]
         self._basePPW=basePPW
         self._PMLThickness=PMLThickness
@@ -1283,6 +1284,9 @@ elif self._bTightNarrowBeamDomain:
                                                                          self._YShrink_L:upperYR,
                                                                          self._ZShrink_L:upperZR]
                 self._MaterialMap[BoneRegion]=SubCTMap[BoneRegion]
+                print('Min: ', SubCTMap[BoneRegion].min())
+                print('Max: ', str(SubCTMap[BoneRegion].max()))
+                print('Array Mat Max: ', str(self.ReturnArrayMaterial().max()))
                 assert(SubCTMap[BoneRegion].min()>=3)
                 assert(SubCTMap[BoneRegion].max()<=self.ReturnArrayMaterial().max())
                 print('Regions: ',SubCTMap[BoneRegion].max())
