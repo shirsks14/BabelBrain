@@ -277,8 +277,8 @@ class Babel_Thermal(QWidget):
             DataThermal=self._ThermalResults[self.Widget.SelCombinationDropDown.currentIndex()]
             self._xf=DataThermal['x_vec']
             self._zf=DataThermal['z_vec']
-            SkinZ=np.array(np.where(DataThermal['MaterialMap']==1)).T.min(axis=0)[1]
-            self._zf-=self._zf[SkinZ]
+            # SkinZ=np.array(np.where(DataThermal['MaterialMap']==1)).T.min(axis=0)[1]
+            # self._zf-=self._zf[SkinZ]
         
         DataThermal=self._ThermalResults[self.Widget.SelCombinationDropDown.currentIndex()]
 
@@ -353,15 +353,18 @@ class Babel_Thermal(QWidget):
         MTTCEM=DoseUpdate[3] if len(DoseUpdate)==4 else DoseUpdate[1]
         self.Widget.tableWidget.setItem(5,1,NewItem('%3.1f - %4.1G' % (MTT,MTTCEM),[MTT,MTTCEM],"red" if MTT >= 39 else "blue"))
 
-        MTB=DataThermal['TI']*IsppaRatio+37.0
+        # MTB=DataThermal['TI']*IsppaRatio+37.0
+        MTB=37.0
         MTBCEM=DoseUpdate[1]
         self.Widget.tableWidget.setItem(6,1,NewItem('%3.1f - %4.1G' % (MTB,MTBCEM),[MTB,MTBCEM],"red" if MTB >= 39 else "blue"))
         
-        MTS=DataThermal['TIS']*IsppaRatio+37.0
+        # MTS=DataThermal['TIS']*IsppaRatio+37.0
+        MTS=37
         MTSCEM=DoseUpdate[0]
         self.Widget.tableWidget.setItem(7,1,NewItem('%3.1f - %4.1G' % (MTS,MTSCEM),[MTS,MTSCEM],"red" if MTS >= 39 else "blue"))
 
-        MTC=DataThermal['TIC']*IsppaRatio+37.0
+        # MTC=DataThermal['TIC']*IsppaRatio+37.0
+        MTC = 37
         MTCCEM=DoseUpdate[2]
         self.Widget.tableWidget.setItem(8,1,NewItem('%3.1f - %4.1G' % (MTC,MTCCEM),[MTC,MTCCEM],"red" if MTC >= 39 else "blue"))
 

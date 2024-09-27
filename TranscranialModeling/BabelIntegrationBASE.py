@@ -603,7 +603,11 @@ class BabelFTD_Simulations_BASE(object):
             print('USING MAPPING METHOD = ',self._MappingMethod)
             Porosity=HUtoPorosity(AllBoneHU)
             # add extra step here to account for the SOS
+
+            self._MappingMethod = 'Webb-Marsac'
+
             if self._MappingMethod=='Webb-Marsac':
+                print('Using Marsac')
                 if self._bPETRA:
                     print('Using PETRA to low energy 70 Kvp CT settings')
                     DensityCTIT=HUtoDensityUCLLowEnergy(AllBoneHU)
@@ -615,7 +619,7 @@ class BabelFTD_Simulations_BASE(object):
                 LAttIT = HUtoAttenuationWebb(AllBoneHU,self._Frequency,Params=self._CTMapCombo)
             elif self._MappingMethod=='Aubry':
                 DensityCTIT = PorositytoDensity(Porosity)
-                LSoSIT = PorositytoLSOS(Porosity)
+                # LSoSIT = PorositytoLSOS(Porosity)
                 LAttIT = PorositytoLAtt(Porosity,self._Frequency)
             elif  self._MappingMethod=='Pichardo':
                 DensityCTIT=HUtoDensityAirTissue(AllBoneHU)
@@ -643,6 +647,7 @@ class BabelFTD_Simulations_BASE(object):
                 LAttIT=DensityToLAttMcDannold(DensityCTIT,self._Frequency)
             # New method using US Imaging
             elif self._MappingMethod=='US-Imaging':
+                print('Using  US Imaging')
                 DensityCTIT=HUtoDensityMarsac(AllBoneHU)
 
 
