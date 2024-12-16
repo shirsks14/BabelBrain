@@ -134,7 +134,7 @@ MatFreq={}
 for f in np.arange(100e3,1025e3,5e3):
     Material={}
     #Density (kg/m3), LongSoS (m/s), ShearSoS (m/s), Long Att (Np/m), Shear Att (Np/m)
-    Material['Water']=     np.array([1000.0, 1500.0, 0.0   ,   0.0,                   0.0] )
+    Material['Water']=     np.array([1000.0, 1482.0, 0.0   ,   0.0,                   0.0] )
     Material['Cortical']=  np.array([1896.5, FitSpeedCorticalLong(f), 
                                              FitSpeedCorticalShear(f),  
                                              FitAttCorticalLong_Multiple(f)  , 
@@ -602,8 +602,12 @@ class BabelFTD_Simulations_BASE(object):
             DensityCTMap = np.flip(nibabel.load(self._CTFNAME).get_fdata(),axis=2).astype(np.uint32)
             AllBoneHU = np.load(self._CTFNAME.split('CT.nii.gz')[0]+'CT-cal.npz')['UniqueHU']
             print('Range HU CT, Unique entries',AllBoneHU.min(),AllBoneHU.max(),len(AllBoneHU))
-            print('USING MAPPING METHOD = ',self._MappingMethod)
+            # print('USING MAPPING METHOD = ',self._MappingMethod)
             Porosity=HUtoPorosity(AllBoneHU)
+            # add extra step here to account for the SOS
+
+            self._MappingMethod = 'US-Imaging'
+
             if self._MappingMethod=='Webb-Marsac':
                 if self._bPETRA:
                     print('Using PETRA to low energy 70 Kvp CT settings')
@@ -642,6 +646,24 @@ class BabelFTD_Simulations_BASE(object):
                 DensityCTIT=HUtoDensityMarsac(AllBoneHU)
                 LSoSIT=DensityToLSOSMcDannold(DensityCTIT)
                 LAttIT=DensityToLAttMcDannold(DensityCTIT,self._Frequency)
+            # New method using US Imaging
+            elif self._MappingMethod=='US-Imaging':
+                print('Using  US Imaging')
+                DensityCTIT=HUtoDensityMarsac(AllBoneHU)
+
+                # need  to overwrite with put some approximated number, not from the HU
+                DensityCTIT[:]=1600
+
+                LSoSIT=2405 # Skull 3880
+
+                # LSoSIT=2634 # Skull 4000
+                LSoSIT=LSoSIT*np.ones_like(DensityCTIT)
+
+                # LSoSIT = HUtoLongSpeedofSoundWebb(AllBoneHU)
+
+                LAttIT=HUtoAttenuationWebb(AllBoneHU,self._Frequency)
+                # need to overwrite with some approximated number, not from the HU
+                LAttIT[:]=70.0
             else:
                 raise ValueError('Unknown mapping method -' +self._MappingMethod )
             
@@ -1357,12 +1379,13 @@ elif self._bTightNarrowBeamDomain:
 
             if bDoRefocusing:
             #now backpropagation
+                print('using back rayleigh')
                 self._SensorBack,_,_,InputParam=PModel.StaggeredFDTD_3D_with_relaxation(
                                                                  self._MaterialMap,
                                                                  MaterialList,
                                                                  self._Frequency,
-                                                                 self._SourceMapPunctual,
-                                                                 self._PunctualSource,
+                                                                 self._SourceMapPunctual,#self._SourceMapBackRayleigh
+                                                                 self._PunctualSource,#self._PulseSourceBackRayleigh
                                                                  self._SpatialStep,
                                                                  self._TimeSimulation,
                                                                  self._SensorMapBackPropagation,
