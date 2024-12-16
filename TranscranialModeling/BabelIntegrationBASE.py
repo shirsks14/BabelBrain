@@ -604,13 +604,10 @@ class BabelFTD_Simulations_BASE(object):
             print('Range HU CT, Unique entries',AllBoneHU.min(),AllBoneHU.max(),len(AllBoneHU))
             print('USING MAPPING METHOD = ',self._MappingMethod)
             Porosity=HUtoPorosity(AllBoneHU)
-<<<<<<< Updated upstream
-=======
             # add extra step here to account for the SOS
 
             self._MappingMethod = 'US-Imaging'
 
->>>>>>> Stashed changes
             if self._MappingMethod=='Webb-Marsac':
                 if self._bPETRA:
                     print('Using PETRA to low energy 70 Kvp CT settings')
@@ -649,8 +646,6 @@ class BabelFTD_Simulations_BASE(object):
                 DensityCTIT=HUtoDensityMarsac(AllBoneHU)
                 LSoSIT=DensityToLSOSMcDannold(DensityCTIT)
                 LAttIT=DensityToLAttMcDannold(DensityCTIT,self._Frequency)
-<<<<<<< Updated upstream
-=======
             # New method using US Imaging
             elif self._MappingMethod=='US-Imaging':
                 print('Using  US Imaging')
@@ -669,7 +664,6 @@ class BabelFTD_Simulations_BASE(object):
                 LAttIT=HUtoAttenuationWebb(AllBoneHU,self._Frequency)
                 # need to overwrite with some approximated number, not from the HU
                 LAttIT[:]=70.0
->>>>>>> Stashed changes
             else:
                 raise ValueError('Unknown mapping method -' +self._MappingMethod )
             
