@@ -134,7 +134,7 @@ MatFreq={}
 for f in np.arange(100e3,1025e3,25e3):
     Material={}
     #Density (kg/m3), LongSoS (m/s), ShearSoS (m/s), Long Att (Np/m), Shear Att (Np/m)
-    Material['Water']=     np.array([1000.0, 1500.0, 0.0   ,   0.0,                   0.0] )
+    Material['Water']=     np.array([1000.0, 1482.0, 0.0   ,   0.0,                   0.0] )
     Material['Cortical']=  np.array([1896.5, FitSpeedCorticalLong(f), 
                                              FitSpeedCorticalShear(f),  
                                              FitAttCorticalLong_Multiple(f)  , 
@@ -604,7 +604,7 @@ class BabelFTD_Simulations_BASE(object):
             Porosity=HUtoPorosity(AllBoneHU)
             # add extra step here to account for the SOS
 
-            self._MappingMethod = 'Webb-Marsac'
+            self._MappingMethod = 'US-Imaging'
 
             if self._MappingMethod=='Webb-Marsac':
                 print('Using Marsac')
@@ -659,6 +659,11 @@ class BabelFTD_Simulations_BASE(object):
                 # LSoSIT = HUtoLongSpeedofSoundWebb(AllBoneHU)
 
                 LAttIT=HUtoAttenuationWebb(AllBoneHU,self._Frequency)
+
+                LAttIT[:]=70
+                DensityCTIT[:]=1800
+
+
             else:
                 raise ValueError('Unknown mapping method -' +self._MappingMethod )
             
@@ -709,7 +714,7 @@ class BabelFTD_Simulations_BASE(object):
 
                 self._SIM_SETTINGS.AddMaterial(d, #den
                                         lSoS,
-                                        0,
+                                        1500.0,
                                         lAtt,
                                         0)
 
@@ -1382,8 +1387,8 @@ elif self._bTightNarrowBeamDomain:
                                                                  self._MaterialMap,
                                                                  MaterialList,
                                                                  self._Frequency,
-                                                                 self._SourceMapPunctual,
-                                                                 self._PunctualSource,
+                                                                 self._SourceMapPunctual,#self._SourceMapBackRayleigh
+                                                                 self._PunctualSource,#self._PulseSourceBackRayleigh
                                                                  self._SpatialStep,
                                                                  self._TimeSimulation,
                                                                  self._SensorMapBackPropagation,

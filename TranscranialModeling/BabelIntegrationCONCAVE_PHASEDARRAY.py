@@ -206,6 +206,11 @@ class BabelFTD_Simulations(BabelFTD_Simulations_BASE):
         DataForSim['DistanceConeToFocus']=self._DistanceConeToFocus
         DataForSim['BasePhasedArrayProgrammingRefocusing']=self._SIM_SETTINGS.BasePhasedArrayProgrammingRefocusing
         DataForSim['BasePhasedArrayProgramming']=self._SIM_SETTINGS.BasePhasedArrayProgramming
+        DataForSim['TxCenterVoxels']=self._SIM_SETTINGS._TxCenterVoxels
+        DataForSim['CenterVoxels']=self._SIM_SETTINGS._CenterVoxels
+        DataForSim['CenterFUS']=self._SIM_SETTINGS._CenterFUS
+        DataForSim['TxDef']=self._SIM_SETTINGS._Tx
+        DataForSim['u2backRay']=self._SIM_SETTINGS._u2backRay
     
 class SimulationConditions(SimulationConditionsBASE):
     '''
@@ -283,7 +288,39 @@ class SimulationConditions(SimulationConditionsBASE):
             raise RuntimeError("The Tx limit in Z is below the location of the layer for source location for forward propagation.")
       
         #we apply an homogeneous pressure 
-       
+        TxCenterVoxels=np.zeros(self._Tx['elemcenter'].shape,dtype=int)
+        szExtra = 10000
+        xe = np.arange(szExtra)*self._SpatialStep
+        XXb = xe-xe[-1]+self._XDim[0]-self._SpatialStep
+        XXa = xe+self._XDim[-1]+self._SpatialStep
+        XXf = np.hstack((XXb,self._XDim,XXa))
+        YYb = xe-xe[-1]+self._YDim[0]-self._SpatialStep
+        YYa = xe+self._YDim[-1]+self._SpatialStep
+        YYf = np.hstack((YYb,self._YDim,YYa))
+        ZZb = xe-xe[-1]+self._ZDim[0]-self._SpatialStep
+        ZZf = np.hstack((ZZb,self._ZDim))
+        IndXf = np.arange(len(XXf))-szExtra
+        IndYf = np.arange(len(YYf))-szExtra
+        IndZf = np.arange(len(ZZf))-szExtra
+
+        for n in range(self._Tx['elemcenter'].shape[0]):
+            #we calculate the index in pixels (accepting negative) of the Tx center
+            TxCenterVoxels[n,0]=IndXf[np.argmin(np.abs(XXf-self._Tx['elemcenter'][n,0]))]
+            TxCenterVoxels[n,1]=IndYf[np.argmin(np.abs(YYf-self._Tx['elemcenter'][n,1]))]
+            TxCenterVoxels[n,2]=IndZf[np.argmin(np.abs(ZZf-self._Tx['elemcenter'][n,2]))]
+
+        self._TxCenterVoxels=TxCenterVoxels
+        print('self._TxCenterVoxels',self._TxCenterVoxels)
+        center=np.zeros((1,3),np.float32)
+        center[0,0]=self._XDim[self._FocalSpotLocation[0]]+self._TxMechanicalAdjustmentX+self._XSteering
+        center[0,1]=self._YDim[self._FocalSpotLocation[1]]+self._TxMechanicalAdjustmentY+self._YSteering
+        center[0,2]=self._ZDim[self._FocalSpotLocation[2]]+self._TxMechanicalAdjustmentZ+self._ZSteering
+        self._CenterFUS=center
+        print('self._FocalSpotLocation voxel',self._FocalSpotLocation)
+        self._CenterVoxels=np.array([IndXf[np.argmin(np.abs(XXf-center[0,0]))],
+                            IndYf[np.argmin(np.abs(YYf-center[0,1]))],
+                            IndZf[np.argmin(np.abs(ZZf-center[0,2]))]])
+        print('center voxels',self._CenterVoxels )
         
         cwvnb_extlay=np.array(2*np.pi*self._Frequency/Material['Water'][1]+1j*0).astype(np.complex64)
         
@@ -307,6 +344,7 @@ class SimulationConditions(SimulationConditionsBASE):
             print('center',center)
             
             u2back=ForwardSimple(cwvnb_extlay,center,ds.astype(np.float32),u0,self._Tx['elemcenter'].astype(np.float32),deviceMetal=deviceName)
+            self._u2backRay= u2back
             u0=np.zeros((self._Tx['center'].shape[0],1),np.complex64)
             nBase=0
             for n in range(self._Tx['NumberElems']):
@@ -398,6 +436,33 @@ class SimulationConditions(SimulationConditionsBASE):
         LocForRefocusing[2]+=int(np.round(self._ZSteering/self._SpatialStep))
         self._SourceMapPunctual[LocForRefocusing[0],LocForRefocusing[1],LocForRefocusing[2]]=1
         
+        ###############
+        self._SourceMapBackRayleigh=np.zeros((self._N1,self._N2,self._N3),np.uint32)
+        self._SourceMapRayleighBack=np.conjugate(self._u2RayleighField[:,:,LocForRefocusing[2]].copy())
+        self._SourceMapRayleighBack[:self._PMLThickness,:]=0
+        self._SourceMapRayleighBack[-self._PMLThickness:,:]=0
+        self._SourceMapRayleighBack[:,:self._PMLThickness]=0
+        self._SourceMapRayleighBack[:,-self._PMLThickness:]=0
+        print('self._SourceMapRayleighBack all 0',np.all(np.abs(self._SourceMapRayleighBack)==0.0))
+
+        SourceMaskIND=np.where(np.abs(self._SourceMapRayleighBack)>0)
+        SourceMask=np.zeros((self._N1,self._N2),np.uint32)
+
+        RefI= int((SourceMaskIND[0].max()-SourceMaskIND[0].min())/2)+SourceMaskIND[0].min()
+        RefJ= int((SourceMaskIND[1].max()-SourceMaskIND[1].min())/2)+SourceMaskIND[1].min()
+        PulseSource = np.zeros((np.sum(np.abs(self._SourceMapRayleighBack)>0),TimeVectorSource.shape[0]))
+        nSource=1                       
+        for i,j in zip(SourceMaskIND[0],SourceMaskIND[1]):
+            SourceMask[i,j]=nSource
+            u0=self._SourceMapRayleighBack[i,j]
+            #we recover amplitude and phase from Rayleigh field
+            PulseSource[nSource-1,:] = np.abs(u0) *np.sin(2*np.pi*self._Frequency*TimeVectorSource+np.angle(u0))
+            PulseSource[nSource-1,:int(ramp_length_points)]*=ramp
+            nSource+=1
+        self._SourceMapBackRayleigh[:,:,LocForRefocusing[2]]=SourceMask 
+
+        self._PulseSourceBackRayleigh=PulseSource
+        ##############
 
         if self._bDisplay:
             plt.figure(figsize=(12,4))
